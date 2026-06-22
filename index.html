@@ -1,0 +1,895 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FitSpark Encourage | 智慧運動與飲食激勵看板</title>
+  <meta name="description" content="結合 AI 卡路里估算、科學體態預測、Google Sheets 同步與動態激勵機制的極致美學健身看板。">
+  
+  <!-- Cache Busting -->
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  
+  <!-- Google Fonts: Outfit & Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- CSS Styling -->
+  <link rel="stylesheet" href="style.css?v=20260622_2130">
+</head>
+<body>
+
+  <!-- Floating Confetti Canvas for celebration -->
+  <canvas id="confetti-canvas"></canvas>
+
+  <!-- Global App Loader -->
+  <div id="app-loader" class="loader-overlay">
+    <div class="loader-content">
+      <div class="loader-logo">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
+          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
+        </svg>
+      </div>
+      <h2 class="loader-title">FitSpark</h2>
+      <p class="loader-status">正在載入您的健康數據...</p>
+      <div class="loading-spinner"></div>
+    </div>
+  </div>
+
+  <div id="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="logo-icon">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 3H6C4.9 3 4 3.9 4 5V19C4 20.1 4.9 21 6 21H18C19.1 21 20 20.1 20 19V5C20 3.9 19.1 3 18 3Z" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            <path d="M12 7V17M8 12H16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>FitSpark</h1>
+          <span class="sub-brand">智慧健身與飲食激勵看板</span>
+        </div>
+      </div>
+      
+      <div class="header-right">
+        <div id="live-clock" class="live-clock">2026/06/22 20:20:00</div>
+        
+        <nav class="tab-navigation">
+          <button id="btn-tab-dashboard" class="tab-btn active" data-tab="dashboard">
+            <span>首頁儀表板</span>
+          </button>
+          <button id="btn-tab-workout" class="tab-btn" data-tab="workout">
+            <span>運動記錄</span>
+          </button>
+          <button id="btn-tab-diet" class="tab-btn" data-tab="diet">
+            <span>飲食與 AI 估算</span>
+          </button>
+          <button id="btn-tab-body" class="tab-btn" data-tab="body">
+            <span>體態分析</span>
+          </button>
+        </nav>
+        
+        <button id="btn-sync-sheets" class="action-btn header-sync-btn" title="同步至 Google Sheets">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          <span class="sync-btn-text">同步 Sheets</span>
+        </button>
+
+        <button id="btn-settings" class="action-btn" title="系統設定">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="app-main">
+      
+      <!-- TAB 1: DASHBOARD -->
+      <section id="tab-content-dashboard" class="tab-pane active">
+        <div class="dashboard-grid">
+          
+          <!-- LEFT COLUMN: Calorie Summary & Macros -->
+          <div class="left-column">
+            
+            <!-- Calorie Card -->
+            <div class="card glass-panel calorie-overview-card">
+              <div class="card-header">
+                <h2>今日能量平衡</h2>
+                <span class="card-subtitle" id="dashboard-date">--月--日</span>
+              </div>
+              <div class="card-body calorie-ring-section">
+                <div class="ring-container">
+                  <svg class="calorie-ring" viewBox="0 0 120 120">
+                    <defs>
+                      <linearGradient id="grad-ring-in" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#10b981" />
+                        <stop offset="100%" stop-color="#059669" />
+                      </linearGradient>
+                      <linearGradient id="grad-ring-out" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#ff6b00" />
+                        <stop offset="100%" stop-color="#ffa800" />
+                      </linearGradient>
+                    </defs>
+                    <circle class="ring-bg" cx="60" cy="60" r="50"></circle>
+                    <circle id="ring-progress-in" class="ring-progress ring-in" cx="60" cy="60" r="50" style="stroke-dasharray: 314; stroke-dashoffset: 314;"></circle>
+                    <circle id="ring-progress-out" class="ring-progress ring-out" cx="60" cy="60" r="42" style="stroke-dasharray: 264; stroke-dashoffset: 264;"></circle>
+                  </svg>
+                  <div class="ring-text">
+                    <span class="net-lbl">淨熱量平衡</span>
+                    <span id="net-cal-val" class="net-val">0</span>
+                    <span class="unit">kcal</span>
+                  </div>
+                </div>
+                
+                <div class="calorie-stats-details">
+                  <div class="cal-stat-item">
+                    <div class="stat-indicator in-dot"></div>
+                    <div class="stat-info">
+                      <span class="lbl">攝取熱量</span>
+                      <span id="total-cal-in" class="val">0 kcal</span>
+                    </div>
+                  </div>
+                  <div class="cal-stat-item">
+                    <div class="stat-indicator out-dot"></div>
+                    <div class="stat-info">
+                      <span class="lbl">消耗熱量</span>
+                      <span id="total-cal-out" class="val">0 kcal</span>
+                    </div>
+                  </div>
+                  <div class="cal-stat-item">
+                    <div class="stat-indicator tdee-dot"></div>
+                    <div class="stat-info">
+                      <span class="lbl">TDEE (基本消耗)</span>
+                      <span id="tdee-val-display" class="val">0 kcal</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Macros Card -->
+            <div class="card glass-panel macros-card">
+              <div class="card-header">
+                <h2>當日三大營養素</h2>
+                <span class="card-subtitle">與目標設定對比</span>
+              </div>
+              <div class="card-body">
+                <div class="macro-bar-group">
+                  <div class="macro-label-row">
+                    <span class="macro-name protein-color">蛋白質 (Protein)</span>
+                    <span class="macro-ratio" id="macro-protein-ratio">0g / 0g</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div id="macro-protein-bar" class="progress-bar-fill protein-bg" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="macro-bar-group">
+                  <div class="macro-label-row">
+                    <span class="macro-name carb-color">碳水化合物 (Carbs)</span>
+                    <span class="macro-ratio" id="macro-carb-ratio">0g / 0g</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div id="macro-carb-bar" class="progress-bar-fill carb-bg" style="width: 0%;"></div>
+                  </div>
+                </div>
+
+                <div class="macro-bar-group">
+                  <div class="macro-label-row">
+                    <span class="macro-name fat-color">脂肪 (Fat)</span>
+                    <span class="macro-ratio" id="macro-fat-ratio">0g / 0g</span>
+                  </div>
+                  <div class="progress-bar-bg">
+                    <div id="macro-fat-bar" class="progress-bar-fill fat-bg" style="width: 0%;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
+          </div>
+          
+          <!-- RIGHT COLUMN: Projection Summary & Encouragement -->
+          <div class="right-column">
+            
+            <!-- Projections Card -->
+            <div class="card glass-panel projection-card">
+              <div class="card-header">
+                <h2>未來體態科學預測</h2>
+                <span class="card-subtitle">基於近期能量平衡與運動強度</span>
+              </div>
+              <div class="card-body">
+                <div class="projection-subtext">如果持續目前的鍛鍊與飲食習慣：</div>
+                
+                <div class="projection-timeline">
+                  <!-- 7 Days Projection -->
+                  <div class="proj-box">
+                    <h3 class="proj-title font-gradient-purple">7 天後預測</h3>
+                    <div class="proj-stats">
+                      <div class="proj-stat">
+                        <span class="lbl">體重 (Weight)</span>
+                        <span id="proj-7-weight" class="val">-- kg</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">肌肉量 (Muscle)</span>
+                        <span id="proj-7-muscle" class="val">-- kg</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">體脂率 (Body Fat)</span>
+                        <span id="proj-7-fat" class="val">-- %</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 30 Days Projection -->
+                  <div class="proj-box">
+                    <h3 class="proj-title font-gradient-pink">30 天後預測</h3>
+                    <div class="proj-stats">
+                      <div class="proj-stat">
+                        <span class="lbl">體重 (Weight)</span>
+                        <span id="proj-30-weight" class="val">-- kg</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">肌肉量 (Muscle)</span>
+                        <span id="proj-30-muscle" class="val">-- kg</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">體脂率 (Body Fat)</span>
+                        <span id="proj-30-fat" class="val">-- %</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="projection-info-tip">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="16" x2="12" y2="12"></line>
+                    <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                  </svg>
+                  <span>肌肉量增加預測取決於是否補充足夠蛋白質及是否進行重量訓練！</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- AI Encouragement Card -->
+            <div class="card glass-panel encouragement-card">
+              <div class="card-header">
+                <h2>FitSpark 激勵補給站</h2>
+                <span class="card-subtitle">堅持運動，您就是最好的自己！</span>
+              </div>
+              <div class="card-body">
+                <div class="encourage-content">
+                  <div class="quote-icon">“</div>
+                  <p id="motivate-quote-text" class="quote-text">正在為您挑選激勵金句...</p>
+                  <div id="motivate-quote-author" class="quote-author">— FitSpark Motivation</div>
+                </div>
+                
+                <div class="encouragement-actions">
+                  <button id="btn-get-spark" class="spark-btn pulse-glow-btn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+                    </svg>
+                    <span>激發我的動力！</span>
+                  </button>
+                  <button id="btn-speak-quote" class="speak-btn" title="語音朗讀">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+                      <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 2: WORKOUT TRACKER -->
+      <section id="tab-content-workout" class="tab-pane">
+        <div class="dashboard-grid">
+          
+          <!-- LEFT COLUMN: Add Workout -->
+          <div class="left-column">
+            
+            <!-- AI Workout Estimator Card -->
+            <div class="card glass-panel ai-estimator-card" style="border-color: rgba(255, 107, 0, 0.2);">
+              <div class="card-header">
+                <div class="flex-header">
+                  <h2>AI 智慧運動快速估算</h2>
+                  <span class="ai-badge" style="background: linear-gradient(135deg, var(--accent-orange), var(--accent-yellow)); box-shadow: 0 2px 8px var(--accent-orange-glow);">Gemini AI</span>
+                </div>
+                <span class="card-subtitle">用口語寫下做了什麼運動，AI 自動估算卡路里！</span>
+              </div>
+              <div class="card-body">
+                <div class="form-group">
+                  <textarea id="ai-workout-prompt-input" rows="3" placeholder="例如：我今天下午去打了 1 個小時的籃球，強度中等，全身暴汗；另外還跳繩 10 分鐘"></textarea>
+                </div>
+                
+                <div class="ai-actions">
+                  <button id="btn-ai-workout-estimate" class="ai-btn orange-glow-btn">
+                    <svg class="ai-sparkle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v1M12 20v1M3 12h1M20 12h1M18.36 5.64l-.7.7M6.34 17.66l-.7.7M18.36 18.36l-.7-.7M6.34 6.34l-.7-.7"/>
+                      <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+                    </svg>
+                    <span>AI 估算運動消耗</span>
+                  </button>
+                  <button id="btn-clear-workout-ai" class="clear-text-btn">清除輸入</button>
+                </div>
+
+                <div class="favorite-prompts-container">
+                  <span class="fav-title">常用/歷史口語描述（點擊帶入）：</span>
+                  <div class="fav-chips" id="workout-fav-chips">
+                    <span class="fav-chip" data-text="我今天重量訓練了 45 分鐘，強度中等">💪 重訓 45m</span>
+                    <span class="fav-chip" data-text="慢跑 30 分鐘，強度中等，速度一般">🏃 慢跑 30m</span>
+                    <span class="fav-chip" data-text="休閒散步 50 分鐘，強度低">🚶 散步 50m</span>
+                    <span class="fav-chip" data-text="高強度間歇訓練 (HIIT) 20 分鐘">🔥 HIIT 20m</span>
+                  </div>
+                </div>
+
+                <!-- AI Response preview panel -->
+                <div id="ai-workout-result-panel" class="ai-result-panel hidden" style="border-color: rgba(255, 107, 0, 0.3); background: rgba(255, 107, 0, 0.03);">
+                  <div class="result-header">
+                    <h4 style="color: var(--accent-orange);">AI 分析運動結果：</h4>
+                    <span id="ai-workout-status-indicator" class="ai-status" style="background: rgba(255, 107, 0, 0.12); color: var(--accent-orange);">估算完成</span>
+                  </div>
+                  <div class="result-table-wrapper">
+                    <table class="result-table">
+                      <thead>
+                        <tr>
+                          <th>運動項目</th>
+                          <th>時長 (分鐘)</th>
+                          <th>強度</th>
+                          <th>估算消耗 (kcal)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="ai-workout-result-tbody">
+                        <!-- AI parsed rows will be injected here -->
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="ai-result-actions">
+                    <button id="btn-ai-workout-accept" class="primary-btn green-btn">確認並加入清單</button>
+                    <button id="btn-ai-workout-reject" class="secondary-btn">取消</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card glass-panel">
+              <div class="card-header">
+                <h2>記錄今日運動項目</h2>
+                <span class="card-subtitle">依據 MET 科學數值估算卡路里消耗</span>
+              </div>
+              <div class="card-body">
+                <form id="form-add-workout" class="form-container">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="workout-type">運動項目</label>
+                      <select id="workout-type" required>
+                        <option value="running">慢跑 / 跑步 (Running)</option>
+                        <option value="weight">重量訓練 / 重訓 (Weight Training)</option>
+                        <option value="walking">走路 / 散步 (Walking)</option>
+                        <option value="cycling">騎單車 / 自行車 (Cycling)</option>
+                        <option value="swimming">游泳 (Swimming)</option>
+                        <option value="hiit">高強度間歇訓練 (HIIT)</option>
+                        <option value="yoga">瑜珈 (Yoga)</option>
+                        <option value="custom">其他 / 自訂項目 (Custom)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div id="custom-workout-name-group" class="form-row hidden">
+                    <div class="form-group">
+                      <label for="workout-custom-name">自訂項目名稱</label>
+                      <input type="text" id="workout-custom-name" placeholder="例如：打籃球, 跳繩...">
+                    </div>
+                  </div>
+
+                  <div class="form-row flex-row">
+                    <div class="form-group flex-1">
+                      <label for="workout-duration">運動時長 (分鐘)</label>
+                      <input type="number" id="workout-duration" min="1" max="1440" required placeholder="分鐘">
+                    </div>
+                    
+                    <div class="form-group flex-1">
+                      <label for="workout-intensity">運動強度</label>
+                      <select id="workout-intensity">
+                        <option value="low">低強度 (暖身/拉伸/輕鬆)</option>
+                        <option value="medium" selected>中強度 (微喘/流汗/一般)</option>
+                        <option value="high">高強度 (很喘/力竭/極度吃力)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row flex-row align-end">
+                    <div class="form-group flex-1">
+                      <label for="workout-calories-override">估計消耗熱量 (kcal)</label>
+                      <input type="number" id="workout-calories-override" min="0" placeholder="自動計算中">
+                    </div>
+                    <div class="form-group flex-auto">
+                      <span class="info-tag-text">MET 計算：<span id="calculated-calories-preview">0</span> kcal</span>
+                    </div>
+                  </div>
+
+                  <button type="submit" class="submit-btn orange-glow-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>登錄運動記錄</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Favorite Workouts Quick Log Card -->
+            <div class="card glass-panel" style="margin-top: 20px; border-color: rgba(255, 107, 0, 0.15);">
+              <div class="card-header">
+                <h2>常用運動快速登錄</h2>
+                <span class="card-subtitle">點擊下方常用項目即可一鍵直接登錄至今日</span>
+              </div>
+              <div class="card-body">
+                <div id="favorite-workout-chips" class="fav-item-chips">
+                  <!-- Favorite workout chips rendered dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: Workout List -->
+          <div class="right-column">
+            <div class="card glass-panel flex-column-card">
+              <div class="card-header">
+                <h2>今日運動清單</h2>
+                <span class="card-subtitle" id="workout-list-count">今日累計運動 0 項，共 0 分鐘</span>
+              </div>
+              <div class="card-body card-container-scroll flex-1">
+                <div id="workout-list" class="item-list">
+                  <div class="empty-state">
+                    <div class="empty-icon">🧘‍♂️</div>
+                    <p>今天還沒有運動記錄喔！<br>動起來，為今天加分！</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 3: DIET TRACKER & AI ESTIMATOR -->
+      <section id="tab-content-diet" class="tab-pane">
+        <div class="dashboard-grid">
+          
+          <!-- LEFT COLUMN: Add Food & AI Estimator -->
+          <div class="left-column">
+            
+            <!-- AI Estimator Sub-card -->
+            <div class="card glass-panel ai-estimator-card">
+              <div class="card-header">
+                <div class="flex-header">
+                  <h2>AI 智慧飲食快速估算</h2>
+                  <span class="ai-badge">Gemini AI</span>
+                </div>
+                <span class="card-subtitle">用口語寫下吃了什麼，AI 自動估算營養素！</span>
+              </div>
+              <div class="card-body">
+                <div class="form-group">
+                  <textarea id="ai-prompt-input" rows="3" placeholder="例如：我中午吃了一個排骨便當、一碗貢丸湯，還喝了一杯無糖綠茶"></textarea>
+                </div>
+                
+                <div class="ai-actions">
+                  <button id="btn-ai-estimate" class="ai-btn purple-glow-btn">
+                    <svg class="ai-sparkle-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M12 3v1M12 20v1M3 12h1M20 12h1M18.36 5.64l-.7.7M6.34 17.66l-.7.7M18.36 18.36l-.7-.7M6.34 6.34l-.7-.7"/>
+                      <circle cx="12" cy="12" r="4" fill="currentColor"></circle>
+                    </svg>
+                    <span>AI 估算熱量與營養</span>
+                  </button>
+                  <button id="btn-clear-ai" class="clear-text-btn">清除輸入</button>
+                </div>
+
+                <div class="favorite-prompts-container">
+                  <span class="fav-title">常用/歷史口語描述（點擊帶入）：</span>
+                  <div class="fav-chips" id="diet-fav-chips">
+                    <span class="fav-chip" data-text="早餐吃了一片烤吐司、兩顆茶葉蛋和一杯低脂鮮乳">🍳 烤吐司蛋鮮乳</span>
+                    <span class="fav-chip" data-text="午餐吃了一個烤雞腿便當加一碗貢丸湯，配一杯無糖綠茶">🍗 雞腿便當</span>
+                    <span class="fav-chip" data-text="晚餐吃了一個水煮嫩雞胸肉沙拉">🥗 雞胸沙拉</span>
+                    <span class="fav-chip" data-text="運動完喝了一杯無糖豆漿，加一根香蕉">🍌 豆漿香蕉</span>
+                  </div>
+                </div>
+
+                <!-- AI Response preview panel -->
+                <div id="ai-result-panel" class="ai-result-panel hidden">
+                  <div class="result-header">
+                    <h4>AI 分析建議結果：</h4>
+                    <span id="ai-status-indicator" class="ai-status">預估完成</span>
+                  </div>
+                  <div class="result-table-wrapper">
+                    <table class="result-table">
+                      <thead>
+                        <tr>
+                          <th>食物名稱</th>
+                          <th>熱量 (kcal)</th>
+                          <th>蛋白質 (g)</th>
+                          <th>碳水 (g)</th>
+                          <th>脂肪 (g)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="ai-result-tbody">
+                        <!-- AI parsed rows will be injected here -->
+                      </tbody>
+                    </table>
+                  </div>
+                  <div class="ai-result-actions">
+                    <button id="btn-ai-accept" class="primary-btn green-btn">確認並加入清單</button>
+                    <button id="btn-ai-reject" class="secondary-btn">取消</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Manual Add Food Sub-card -->
+            <div class="card glass-panel">
+              <div class="card-header">
+                <h2>手動登錄飲食</h2>
+                <span class="card-subtitle">如果已知營養標示，可以直接在此輸入</span>
+              </div>
+              <div class="card-body">
+                <form id="form-add-food" class="form-container">
+                  <div class="form-row">
+                    <div class="form-group">
+                      <label for="food-name">食物名稱</label>
+                      <input type="text" id="food-name" required placeholder="例如：香蕉、茶葉蛋">
+                    </div>
+                  </div>
+
+                  <div class="form-row flex-row">
+                    <div class="form-group flex-1">
+                      <label for="food-calories">熱量 (kcal)</label>
+                      <input type="number" id="food-calories" min="0" required placeholder="卡路里">
+                    </div>
+                    
+                    <div class="form-group flex-1">
+                      <label for="food-protein">蛋白質 (g)</label>
+                      <input type="number" id="food-protein" min="0" step="0.1" required placeholder="g">
+                    </div>
+                  </div>
+
+                  <div class="form-row flex-row">
+                    <div class="form-group flex-1">
+                      <label for="food-carbs">碳水化合物 (g)</label>
+                      <input type="number" id="food-carbs" min="0" step="0.1" required placeholder="g">
+                    </div>
+                    
+                    <div class="form-group flex-1">
+                      <label for="food-fat">脂肪 (g)</label>
+                      <input type="number" id="food-fat" min="0" step="0.1" required placeholder="g">
+                    </div>
+                  </div>
+
+                  <button type="submit" class="submit-btn green-glow-btn">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                      <line x1="12" y1="5" x2="12" y2="19"></line>
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                    </svg>
+                    <span>登錄飲食記錄</span>
+                  </button>
+                </form>
+              </div>
+            </div>
+
+            <!-- Favorite Diets Quick Log Card -->
+            <div class="card glass-panel" style="margin-top: 20px; border-color: rgba(16, 185, 129, 0.15);">
+              <div class="card-header">
+                <h2>常用飲食快速登錄</h2>
+                <span class="card-subtitle">點擊下方常用項目即可一鍵直接登錄至今日</span>
+              </div>
+              <div class="card-body">
+                <div id="favorite-diet-chips" class="fav-item-chips">
+                  <!-- Favorite diet chips rendered dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: Diet List -->
+          <div class="right-column">
+            <div class="card glass-panel flex-column-card">
+              <div class="card-header">
+                <h2>今日飲食清單</h2>
+                <span class="card-subtitle" id="diet-list-count">今日累計攝取 0 項，共 0 kcal</span>
+              </div>
+              <div class="card-body card-container-scroll flex-1">
+                <div id="diet-list" class="item-list">
+                  <div class="empty-state">
+                    <div class="empty-icon">🍳</div>
+                    <p>今天還沒有飲食記錄喔！<br>快使用 AI 或手動記錄下您吃的美食！</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- TAB 4: BODY ANALYSIS -->
+      <section id="tab-content-body" class="tab-pane">
+        <div class="dashboard-grid">
+          
+          <!-- LEFT COLUMN: Body Stats Details -->
+          <div class="left-column">
+            <div class="card glass-panel">
+              <div class="card-header">
+                <h2>個人生理數據與能量消耗評估 (TDEE)</h2>
+                <span class="card-subtitle">基於 Mifflin-St Jeor 科學公式計算</span>
+              </div>
+              <div class="card-body body-profile-body">
+                <div class="tdee-formula-box">
+                  <div class="bmr-formula-title">您的代謝率計算指標：</div>
+                  <div class="tdee-formula-row">
+                    <div class="formula-item">
+                      <span class="val" id="profile-bmr-display">0 kcal</span>
+                      <span class="lbl">基礎代謝率 (BMR)</span>
+                    </div>
+                    <div class="formula-item">
+                      <span class="val" id="profile-tdee-display">0 kcal</span>
+                      <span class="lbl">每日總熱量消耗 (TDEE)</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="profile-summary-grid">
+                  <div class="profile-summary-item">
+                    <span class="label">性別</span>
+                    <span class="val" id="summary-gender">--</span>
+                  </div>
+                  <div class="profile-summary-item">
+                    <span class="label">年齡</span>
+                    <span class="val" id="summary-age">-- 歲</span>
+                  </div>
+                  <div class="profile-summary-item">
+                    <span class="label">身高</span>
+                    <span class="val" id="summary-height">-- cm</span>
+                  </div>
+                  <div class="profile-summary-item">
+                    <span class="label">目前體重</span>
+                    <span class="val" id="summary-weight">-- kg</span>
+                  </div>
+                  <div class="profile-summary-item">
+                    <span class="label">肌肉量</span>
+                    <span class="val" id="summary-muscle">-- kg</span>
+                  </div>
+                  <div class="profile-summary-item">
+                    <span class="label">體脂率</span>
+                    <span class="val" id="summary-fat-percent">-- %</span>
+                  </div>
+                  <div class="profile-summary-item flex-2">
+                    <span class="label">活動強度</span>
+                    <span class="val" id="summary-activity">--</span>
+                  </div>
+                  <div class="profile-summary-item flex-2">
+                    <span class="label">每週預期休息天數</span>
+                    <span class="val" id="summary-rest-days">-- 天</span>
+                  </div>
+                </div>
+
+                <div class="card-actions-row">
+                  <button id="btn-edit-profile-tab" class="edit-profile-btn border-glow-btn">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 1 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    <span>修改基本資料 / 體態目標</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- RIGHT COLUMN: Scientific Projections Explanation & Targets -->
+          <div class="right-column">
+            <div class="card glass-panel">
+              <div class="card-header">
+                <h2>體態變化曲線預測詳情</h2>
+                <span class="card-subtitle">詳細的體重與體脂走向推估說明</span>
+              </div>
+              <div class="card-body">
+                <div class="projection-detail-rich">
+                  <div class="metric-projection-card">
+                    <h4>體重與脂肪增減規律</h4>
+                    <p>
+                      體重預測基於「熱量赤字與熱量盈餘」科學原理。每創造累積 7,700 大卡的負平衡（消耗大於攝取），體重即可降低約 1 公斤；反之，若累積 7,700 大卡正平衡，體重則預計上升 1 公斤。
+                    </p>
+                  </div>
+                  
+                  <div class="metric-projection-card">
+                    <h4>肌肉量 (瘦體重) 與體脂變化模型</h4>
+                    <p>
+                      肌肉量的增長需要**充足的蛋白質**（今日蛋白質達到目標的 80% 以上）與**重量訓練**（重訓時長大於等於 30 分鐘）。<br>
+                      - <b>足量蛋白 + 重量訓練</b>：系統模擬完整增肌（7天可增肌 0.15 kg，30天可增肌 0.6 kg），並依每週休息天數加權計算。<br>
+                      - <b>僅足量蛋白但無重訓</b>：增肌效率降至 <b>0.25 倍</b>。<br>
+                      - <b>蛋白質攝取不足且處於熱量赤字 (節食)</b>：系統將模擬肌肉流失（肌肉流失量佔總體重減輕量的 <b>35%</b>），這完美展示了「光靠節食會掉肌肉，唯有補充足夠蛋白質 + 重量訓練才能實現增肌減脂」的科學事實！
+                    </p>
+                  </div>
+
+                  <div class="daily-balance-tracker-row">
+                    <div class="tracker-item">
+                      <div class="number-focus" id="current-daily-deficit">0 kcal</div>
+                      <div class="label-desc">今日熱量赤字 (Deficit)</div>
+                    </div>
+                    <div class="tracker-item">
+                      <div class="number-focus" id="protein-target-status">未達標</div>
+                      <div class="label-desc">今日蛋白質攝取狀態</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <p>&copy; 2026 FitSpark Encourage &bull; 動態健康分析與激勵系統 &bull; 打造您更強大的未來體態</p>
+    </footer>
+  </div>
+
+  <!-- SETTINGS MODAL -->
+  <div id="settings-modal" class="modal-overlay">
+    <div class="settings-modal glass-panel">
+      <div class="modal-header">
+        <h2>系統與個人檔案設定</h2>
+        <button id="btn-close-settings" class="close-modal-btn">&times;</button>
+      </div>
+      
+      <div class="modal-body scrollable-modal-body">
+        <form id="settings-form" onsubmit="return false;">
+          
+          <h3 class="section-title">1. 基本生理資料設定</h3>
+          
+          <div class="form-row flex-row">
+            <div class="form-group flex-1">
+              <label for="input-gender">性別 (Gender)</label>
+              <select id="input-gender">
+                <option value="male" selected>男性 (Male)</option>
+                <option value="female">女性 (Female)</option>
+              </select>
+            </div>
+            
+            <div class="form-group flex-1">
+              <label for="input-age">年齡 (Age)</label>
+              <input type="number" id="input-age" min="1" max="120" value="28" required>
+            </div>
+          </div>
+
+          <div class="form-row flex-row">
+            <div class="form-group flex-1">
+              <label for="input-height">身高 (cm)</label>
+              <input type="number" id="input-height" min="50" max="250" value="175" required>
+            </div>
+            
+            <div class="form-group flex-1">
+              <label for="input-weight">目前體重 (kg)</label>
+              <input type="number" id="input-weight" min="10" max="300" step="0.1" value="70.0" required>
+            </div>
+          </div>
+
+          <div class="form-row flex-row">
+            <div class="form-group flex-1">
+              <label for="input-muscle">目前肌肉量 (kg)</label>
+              <input type="number" id="input-muscle" min="5" max="150" step="0.1" value="30.0" required>
+            </div>
+            
+            <div class="form-group flex-1">
+              <label for="input-fat-percent">目前體脂率 (%)</label>
+              <input type="number" id="input-fat-percent" min="1" max="60" step="0.1" value="20.0" required>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-activity">平日活動量</label>
+              <select id="input-activity">
+                <option value="1.2" selected>久坐族 (無運動習慣，辦公室工作)</option>
+                <option value="1.375">輕度活動 (每週輕度運動 1-3 天)</option>
+                <option value="1.55">中度活動 (每週中度運動 3-5 天)</option>
+                <option value="1.725">重度活動 (每週高強度運動 6-7 天)</option>
+                <option value="1.9">極重度活動 (每日劇烈運動、重體力勞動職業)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group">
+              <label for="input-rest-days">每週休息天數 (無重量訓練/高強度運動日)</label>
+              <select id="input-rest-days">
+                <option value="0">0 天 (每天運動/不休息)</option>
+                <option value="1">1 天 (每週運動 6 天)</option>
+                <option value="2" selected>2 天 (每週運動 5 天)</option>
+                <option value="3">3 天 (每週運動 4 天)</option>
+                <option value="4">4 天 (每週運動 3 天)</option>
+                <option value="5">5 天 (每週運動 2 天)</option>
+                <option value="6">6 天 (每週運動 1 天)</option>
+                <option value="7">7 天 (完全不運動/純休息)</option>
+              </select>
+            </div>
+          </div>
+
+          <h3 class="section-title" style="margin-top: 24px;">2. 飲食目標與宏量營養素目標設定</h3>
+          
+          <div class="form-row flex-row">
+            <div class="form-group flex-1">
+              <label for="target-calories">目標日攝取熱量 (kcal)</label>
+              <input type="number" id="target-calories" value="2000" min="500" required>
+            </div>
+          </div>
+          
+          <div class="form-row flex-row">
+            <div class="form-group flex-1">
+              <label for="target-protein">目標蛋白質 (g)</label>
+              <input type="number" id="target-protein" value="120" min="10" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="target-carbs">目標碳水化合物 (g)</label>
+              <input type="number" id="target-carbs" value="220" min="10" required>
+            </div>
+            <div class="form-group flex-1">
+              <label for="target-fat">目標脂肪 (g)</label>
+              <input type="number" id="target-fat" value="60" min="5" required>
+            </div>
+          </div>
+          
+          <div class="form-help" style="margin-top: -6px; margin-bottom: 12px; font-size: 11px;">
+            提示：標準熱量比例 (蛋白質/碳水/脂肪) 建議為 25% / 45% / 30%，或可依個人增肌減脂需求調整。
+          </div>
+
+          <h3 class="section-title" style="margin-top: 24px;">3. AI 功能設定</h3>
+          
+          <div class="form-group">
+            <p class="form-help" style="font-size: 13px; color: var(--accent-green); font-weight: 600;">
+              ✨ Gemini AI 飲食估算金鑰已安全部署於 Google Apps Script 中！網頁將直接透過您的 Apps Script 進行代理估算，本地端無需再輸入金鑰。
+            </p>
+          </div>
+
+          <h3 class="section-title" style="margin-top: 24px;">4. Google Sheets 與 AI 同步設定</h3>
+          
+          <div class="form-group">
+            <label for="input-sheet-url">Google Apps Script Web App 同步網址</label>
+            <input type="url" id="input-sheet-url" placeholder="https://script.google.com/macros/s/.../exec">
+            <p class="form-help">
+              將部署後的 Apps Script 網頁應用程式網址貼於此。此網址將同時作為「一鍵同步試算表」以及「AI 飲食估算」的通訊橋樑。
+            </p>
+          </div>
+
+
+
+          <div class="settings-actions">
+            <button type="button" id="btn-clear-settings" class="secondary-btn">清除本地歷史數據</button>
+            <button type="button" id="btn-save-settings" class="primary-btn green-btn">儲存設定</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <!-- JavaScript Application Logic -->
+  <script src="app.js?v=20260622_2130"></script>
+</body>
+</html>
