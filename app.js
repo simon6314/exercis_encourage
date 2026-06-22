@@ -1308,64 +1308,112 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // --- Google Sheets Synchronization ---
+  // --- Google Sheets Two-Way Synchronization (Read & Write) ---
   el.syncSheetsBtn.addEventListener('click', async () => {
     const sheetsUrl = state.profile.sheetsUrl;
     if (!sheetsUrl) {
-      showToast('請先點擊右上角設定按鈕，設定您的 Google Apps Script Web App 同步網址。', 'info');
-      // Auto open settings modal
+      showToast('請先點擊右上角設定按鈕，設定您的 Google Sheets 同步網址。', 'info');
       el.settingsModal.classList.add('active');
       return;
     }
     
     el.syncSheetsBtn.disabled = true;
-    el.syncSheetsBtn.querySelector('.sync-btn-text').textContent = '同步中...';
-    
-    const log = getActiveLog();
-    const tdee = calculateTdee();
-    const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const netCalories = totalIn - (tdee + workoutOut);
-    
-    const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
-    const totalCarbs = log.diet.reduce((sum, item) => sum + (parseFloat(item.carbs) || 0), 0);
-    const totalFat = log.diet.reduce((sum, item) => sum + (parseFloat(item.fat) || 0), 0);
-    const totalExerciseMins = log.workouts.reduce((sum, w) => sum + w.duration, 0);
-    
-    const p = state.profile;
-    const syncData = {
-      date: currentActiveDate,
-      weight: parseFloat(p.weight) || 70,
-      muscle: parseFloat(p.muscle) || 30,
-      bodyFat: parseFloat(p.fatPercent) || 20,
-      caloriesIn: Math.round(totalIn),
-      caloriesOut: Math.round(tdee + workoutOut),
-      netCalories: Math.round(netCalories),
-      protein: Math.round(totalProtein),
-      carbs: Math.round(totalCarbs),
-      fat: Math.round(totalFat),
-      exerciseMinutes: totalExerciseMins
-    };
+    const btnTextSpan = el.syncSheetsBtn.querySelector('.sync-btn-text.tab-text-full') || el.syncSheetsBtn.querySelector('.sync-btn-text');
+    const oldText = btnTextSpan ? btnTextSpan.textContent : '同步 Sheets';
+    if (btnTextSpan) btnTextSpan.textContent = '同步中...';
     
     try {
-      // Send via JSONP to bypass CORS limitations on file:// protocol
-      const resData = await jsonpRequest(sheetsUrl, {
-        action: 'syncData',
-        data: JSON.stringify(syncData)
-      }, 'cb_sync');
+      showToast('正在從雲端載入數據...', 'info');
+      // 1. Pull current data from Sheets
+      const pullRes = await jsonpRequest(sheetsUrl, { action: 'pullData' }, 'cb_pull');
       
-      if (resData.result === 'success') {
-        showToast('同步成功！數據已寫入 Google Sheets！', 'success');
-        triggerConfetti();
+      if (pullRes.result === 'success') {
+        // Merge Profile settings (except sheetsUrl itself to preserve local config)
+        if (pullRes.profile && Object.keys(pullRes.profile).length > 0) {
+          const originalSheetsUrl = state.profile.sheetsUrl;
+          const originalApiKey = state.profile.geminiApiKey;
+          state.profile = { ...state.profile, ...pullRes.profile };
+          state.profile.sheetsUrl = originalSheetsUrl; // Preserve local sync URL
+          state.profile.geminiApiKey = originalApiKey; // Preserve API Key
+        }
+        
+        // Merge Daily logs
+        if (pullRes.logs && pullRes.logs.length > 0) {
+          pullRes.logs.forEach(row => {
+            const date = row.date;
+            if (!date) return;
+            
+            let dateStr = date;
+            if (date.includes('T')) {
+              dateStr = date.split('T')[0];
+            }
+            
+            let workouts = [];
+            let diet = [];
+            
+            try {
+              workouts = JSON.parse(row.workoutsJson || '[]');
+            } catch(e) {
+              console.error('Failed to parse workoutsJson:', e);
+            }
+            
+            try {
+              diet = JSON.parse(row.dietJson || '[]');
+            } catch(e) {
+              console.error('Failed to parse dietJson:', e);
+            }
+            
+            if (!state.dailyLogs[dateStr]) {
+              state.dailyLogs[dateStr] = { workouts, diet };
+            } else {
+              // Two-way merge item lists by checking duplicate IDs to prevent double entries
+              const localLog = state.dailyLogs[dateStr];
+              workouts.forEach(w => {
+                if (!localLog.workouts.some(lw => lw.id === w.id)) {
+                  localLog.workouts.push(w);
+                }
+              });
+              diet.forEach(d => {
+                if (!localLog.diet.some(ld => ld.id === d.id)) {
+                  localLog.diet.push(d);
+                }
+              });
+            }
+          });
+        }
+        
+        // Save merged state to local storage
+        saveStateToStorage();
+        updateUI();
+        
+        showToast('雲端數據已載入，正在上傳同步最新變更...', 'info');
+        
+        // 2. Immediately push the merged local storage state back to Sheets
+        const syncPayload = {
+          logs: state.dailyLogs,
+          profile: state.profile
+        };
+        
+        const pushRes = await jsonpRequest(sheetsUrl, {
+          action: 'pushData',
+          data: JSON.stringify(syncPayload)
+        }, 'cb_push');
+        
+        if (pushRes.result === 'success') {
+          showToast('雲端雙向同步成功！', 'success');
+          triggerConfetti();
+        } else {
+          throw new Error(pushRes.message || '寫入雲端試算表失敗');
+        }
       } else {
-        throw new Error(resData.message || '寫入試算表失敗');
+        throw new Error(pullRes.message || '讀取雲端數據失敗');
       }
     } catch (err) {
       console.error('Google Sheets sync error:', err);
-      showToast('同步連線失敗，請檢查 Apps Script 網址與網路設定。', 'error');
+      showToast('同步失敗，請確認您的 Apps Script 網址與雲端權限。', 'error');
     } finally {
       el.syncSheetsBtn.disabled = false;
-      el.syncSheetsBtn.querySelector('.sync-btn-text').textContent = '同步 Sheets';
+      if (btnTextSpan) btnTextSpan.textContent = oldText;
     }
   });
 
