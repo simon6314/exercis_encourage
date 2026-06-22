@@ -152,6 +152,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // Settings Modal Inputs
     settingsModal: document.getElementById('settings-modal'),
     btnCloseSettings: document.getElementById('btn-close-settings'),
+    
+    // Sync Modal
+    syncModal: document.getElementById('sync-modal'),
+    btnCloseSync: document.getElementById('btn-close-sync'),
+    btnSyncDownload: document.getElementById('btn-sync-download'),
+    btnSyncUpload: document.getElementById('btn-sync-upload'),
     settingsForm: document.getElementById('settings-form'),
     inputGender: document.getElementById('input-gender'),
     inputAge: document.getElementById('input-age'),
@@ -1294,37 +1300,53 @@ document.addEventListener('DOMContentLoaded', () => {
     };
   }
 
-  // --- Google Sheets Two-Way Synchronization (Read & Write) ---
-  el.syncSheetsBtn.addEventListener('click', async () => {
+  // --- Google Sheets Synchronization Modal Trigger ---
+  el.syncSheetsBtn.addEventListener('click', () => {
     const sheetsUrl = state.profile.sheetsUrl;
     if (!sheetsUrl) {
       showToast('請先點擊右上角設定按鈕，設定您的 Google Sheets 同步網址。', 'info');
       el.settingsModal.classList.add('active');
       return;
     }
-    
-    el.syncSheetsBtn.disabled = true;
-    const btnTextSpan = el.syncSheetsBtn.querySelector('.sync-btn-text.tab-text-full') || el.syncSheetsBtn.querySelector('.sync-btn-text');
-    const oldText = btnTextSpan ? btnTextSpan.textContent : '同步 Sheets';
-    if (btnTextSpan) btnTextSpan.textContent = '同步中...';
-    
+    el.syncModal.classList.add('active');
+  });
+
+  el.btnCloseSync.addEventListener('click', () => {
+    el.syncModal.classList.remove('active');
+  });
+
+  el.syncModal.addEventListener('click', (e) => {
+    if (e.target === el.syncModal) {
+      el.syncModal.classList.remove('active');
+    }
+  });
+
+  // --- Sync Action: Download from Cloud (Overwrites Local) ---
+  el.btnSyncDownload.addEventListener('click', async () => {
+    const sheetsUrl = state.profile.sheetsUrl;
+    if (!sheetsUrl) return;
+
+    el.btnSyncDownload.disabled = true;
+    const originalText = el.btnSyncDownload.textContent;
+    el.btnSyncDownload.textContent = '讀取下載中...';
+
     try {
       showToast('正在從雲端載入數據...', 'info');
-      // 1. Pull current data from Sheets
       const pullRes = await postRequest(sheetsUrl, { action: 'pullData' });
       
       if (pullRes.result === 'success') {
-        // Merge Profile settings (except sheetsUrl itself to preserve local config)
+        // Overwrite Profile settings (except local-only values like sheetsUrl and geminiApiKey)
         if (pullRes.profile && Object.keys(pullRes.profile).length > 0) {
           const originalSheetsUrl = state.profile.sheetsUrl;
           const originalApiKey = state.profile.geminiApiKey;
           state.profile = { ...state.profile, ...pullRes.profile };
-          state.profile.sheetsUrl = originalSheetsUrl; // Preserve local sync URL
+          state.profile.sheetsUrl = originalSheetsUrl; // Preserve local URL
           state.profile.geminiApiKey = originalApiKey; // Preserve API Key
         }
         
-        // Merge Daily logs
-        if (pullRes.logs && pullRes.logs.length > 0) {
+        // Overwrite Daily logs entirely with cloud version
+        if (pullRes.logs) {
+          state.dailyLogs = {}; // Clear local logs before loading
           pullRes.logs.forEach(row => {
             const date = row.date;
             if (!date) return;
@@ -1349,57 +1371,62 @@ document.addEventListener('DOMContentLoaded', () => {
               console.error('Failed to parse dietJson:', e);
             }
             
-            if (!state.dailyLogs[dateStr]) {
-              state.dailyLogs[dateStr] = { workouts, diet };
-            } else {
-              // Two-way merge item lists by checking duplicate IDs to prevent double entries
-              const localLog = state.dailyLogs[dateStr];
-              workouts.forEach(w => {
-                if (!localLog.workouts.some(lw => lw.id === w.id)) {
-                  localLog.workouts.push(w);
-                }
-              });
-              diet.forEach(d => {
-                if (!localLog.diet.some(ld => ld.id === d.id)) {
-                  localLog.diet.push(d);
-                }
-              });
-            }
+            state.dailyLogs[dateStr] = { workouts, diet };
           });
         }
         
-        // Save merged state to local storage
         saveStateToStorage();
         updateUI();
-        
-        showToast('雲端數據已載入，正在上傳同步最新變更...', 'info');
-        
-        // 2. Immediately push the merged local storage state back to Sheets
-        const syncPayload = {
-          logs: state.dailyLogs,
-          profile: state.profile
-        };
-        
-        const pushRes = await postRequest(sheetsUrl, {
-          action: 'pushData',
-          data: syncPayload
-        });
-        
-        if (pushRes.result === 'success') {
-          showToast('雲端雙向同步成功！', 'success');
-          triggerConfetti();
-        } else {
-          throw new Error(pushRes.message || '寫入雲端試算表失敗');
-        }
+        el.syncModal.classList.remove('active');
+        showToast('雲端數據下載成功！已覆蓋此裝置資料。', 'success');
+        triggerConfetti();
       } else {
-        throw new Error(pullRes.message || '讀取雲端數據失敗');
+        throw new Error(pullRes.message || '雲端回傳失敗');
       }
     } catch (err) {
-      console.error('Google Sheets sync error:', err);
-      showToast('同步失敗，請確認您的 Apps Script 網址與雲端權限。', 'error');
+      console.error('Download error:', err);
+      showToast('下載失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
     } finally {
-      el.syncSheetsBtn.disabled = false;
-      if (btnTextSpan) btnTextSpan.textContent = oldText;
+      el.btnSyncDownload.disabled = false;
+      el.btnSyncDownload.textContent = originalText;
+    }
+  });
+
+  // --- Sync Action: Upload to Cloud (Overwrites Cloud) ---
+  el.btnSyncUpload.addEventListener('click', async () => {
+    const sheetsUrl = state.profile.sheetsUrl;
+    if (!sheetsUrl) return;
+
+    el.btnSyncUpload.disabled = true;
+    const originalText = el.btnSyncUpload.textContent;
+    el.btnSyncUpload.textContent = '上傳同步中...';
+
+    try {
+      showToast('正在將此裝置資料上傳至雲端...', 'info');
+      
+      const syncPayload = {
+        logs: state.dailyLogs,
+        profile: state.profile
+      };
+      
+      const pushRes = await postRequest(sheetsUrl, {
+        action: 'pushData',
+        data: syncPayload
+      });
+      
+      if (pushRes.result === 'success') {
+        el.syncModal.classList.remove('active');
+        showToast('本機資料已成功上傳覆蓋雲端！', 'success');
+        triggerConfetti();
+      } else {
+        throw new Error(pushRes.message || '雲端寫入失敗');
+      }
+    } catch (err) {
+      console.error('Upload error:', err);
+      showToast('上傳失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
+    } finally {
+      el.btnSyncUpload.disabled = false;
+      el.btnSyncUpload.textContent = originalText;
     }
   });
 

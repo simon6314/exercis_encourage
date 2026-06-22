@@ -892,6 +892,48 @@
     </div>
   </div>
 
+  <!-- SYNC MODAL -->
+  <div id="sync-modal" class="modal-overlay">
+    <div class="settings-modal glass-panel" style="max-width: 450px; max-height: auto;">
+      <div class="modal-header">
+        <h2>Google Sheets 試算表同步</h2>
+        <button id="btn-close-sync" class="close-modal-btn">&times;</button>
+      </div>
+      
+      <div class="modal-body scrollable-modal-body" style="padding: 24px; gap: 16px;">
+        <p style="font-size: 13px; margin: 0; line-height: 1.6; color: var(--text-secondary);">
+          請選擇同步方向。為避免本機剛修改的資料被雲端舊資料覆蓋，或本機空資料覆蓋雲端，請依場景選擇：
+        </p>
+        
+        <!-- Action 1: Download -->
+        <div style="background: rgba(255, 255, 255, 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 8px;">
+          <h3 style="margin: 0; font-size: 14px; color: var(--accent-green); display: flex; align-items: center; gap: 6px;">
+            📥 從雲端下載 (Download)
+          </h3>
+          <p style="font-size: 11px; margin: 0; color: var(--text-muted); line-height: 1.5;">
+            將試算表的最新數據下載並<strong>覆蓋此裝置</strong>的資料。適用於在其他裝置有更新、或想從雲端還原舊資料時。
+          </p>
+          <button type="button" id="btn-sync-download" class="primary-btn green-btn" style="width: 100%; justify-content: center; padding: 10px; font-size: 13px; border-radius: 8px; margin-top: 4px;">
+            從雲端下載 (覆蓋此裝置)
+          </button>
+        </div>
+        
+        <!-- Action 2: Upload -->
+        <div style="background: rgba(255, 255, 255, 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 8px;">
+          <h3 style="margin: 0; font-size: 14px; color: var(--accent-orange); display: flex; align-items: center; gap: 6px;">
+            📤 上傳至雲端 (Upload)
+          </h3>
+          <p style="font-size: 11px; margin: 0; color: var(--text-muted); line-height: 1.5;">
+            將此裝置的資料上傳並<strong>覆蓋雲端試算表</strong>。適用於剛在此裝置新增、修改或刪除資料，想要備份至雲端時。
+          </p>
+          <button type="button" id="btn-sync-upload" class="primary-btn orange-btn" style="width: 100%; justify-content: center; padding: 10px; font-size: 13px; border-radius: 8px; margin-top: 4px;">
+            上傳至雲端 (覆蓋雲端)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div id="toast-container"></div>
 
   <!-- JavaScript Application Logic -->
