@@ -208,40 +208,26 @@ document.addEventListener('DOMContentLoaded', () => {
     return state.dailyLogs[currentActiveDate];
   }
 
-  // --- JSONP Request Helper to bypass CORS in file:// protocol ---
-  function jsonpRequest(url, params, callbackName) {
-    return new Promise((resolve, reject) => {
-      const uniqueCallback = callbackName + '_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-      
-      // Register callback globally
-      window[uniqueCallback] = (data) => {
-        resolve(data);
-        cleanup();
-      };
-      
-      const queryParams = { ...params, callback: uniqueCallback };
-      const queryString = Object.keys(queryParams)
-        .map(key => encodeURIComponent(key) + '=' + encodeURIComponent(queryParams[key]))
-        .join('&');
-      
-      const script = document.createElement('script');
-      script.src = url + (url.indexOf('?') >= 0 ? '&' : '?') + queryString;
-      script.async = true;
-      
-      script.onerror = () => {
-        reject(new Error('JSONP 請求連線失敗，請檢查網路或 Apps Script 網址設定。'));
-        cleanup();
-      };
-      
-      document.body.appendChild(script);
-      
-      function cleanup() {
-        if (script.parentNode) {
-          script.parentNode.removeChild(script);
-        }
-        delete window[uniqueCallback];
-      }
+  // --- POST Request Helper to send data to Apps Script Web App ---
+  async function postRequest(url, data) {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'text/plain;charset=utf-8'
+      },
+      body: JSON.stringify(data)
     });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+    }
+    
+    const resText = await response.text();
+    try {
+      return JSON.parse(resText);
+    } catch (err) {
+      throw new Error('伺服器回傳格式不正確，無法解析為 JSON。');
+    }
   }
 
   // --- Storage Logic ---
@@ -926,11 +912,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      // Call Gemini parser via the Google Apps Script Web App proxy using JSONP to bypass CORS on file:// protocol
-      const resData = await jsonpRequest(sheetsUrl, {
+      // Call Gemini parser via the Google Apps Script Web App proxy using POST
+      const resData = await postRequest(sheetsUrl, {
         action: 'estimateFood',
         text: promptText
-      }, 'cb_food');
+      });
       
       if (resData.result === 'success' && Array.isArray(resData.data)) {
         displayAiResults(resData.data);
@@ -1086,12 +1072,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     try {
-      // Call Gemini parser via the Google Apps Script Web App proxy using JSONP to bypass CORS on file:// protocol
-      const resData = await jsonpRequest(sheetsUrl, {
+      // Call Gemini parser via the Google Apps Script Web App proxy using POST
+      const resData = await postRequest(sheetsUrl, {
         action: 'estimateWorkout',
         text: promptText,
         weight: parseFloat(state.profile.weight) || 70
-      }, 'cb_workout');
+      });
       
       if (resData.result === 'success' && Array.isArray(resData.data)) {
         displayAiWorkoutResults(resData.data);
@@ -1325,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       showToast('正在從雲端載入數據...', 'info');
       // 1. Pull current data from Sheets
-      const pullRes = await jsonpRequest(sheetsUrl, { action: 'pullData' }, 'cb_pull');
+      const pullRes = await postRequest(sheetsUrl, { action: 'pullData' });
       
       if (pullRes.result === 'success') {
         // Merge Profile settings (except sheetsUrl itself to preserve local config)
@@ -1394,10 +1380,10 @@ document.addEventListener('DOMContentLoaded', () => {
           profile: state.profile
         };
         
-        const pushRes = await jsonpRequest(sheetsUrl, {
+        const pushRes = await postRequest(sheetsUrl, {
           action: 'pushData',
-          data: JSON.stringify(syncPayload)
-        }, 'cb_push');
+          data: syncPayload
+        });
         
         if (pushRes.result === 'success') {
           showToast('雲端雙向同步成功！', 'success');
