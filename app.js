@@ -228,6 +228,14 @@ document.addEventListener('DOMContentLoaded', () => {
     adaptiveTdeeInfo: document.getElementById('adaptive-tdee-info'),
     adaptiveTdeeOffsetVal: document.getElementById('adaptive-tdee-offset-val'),
     aiCoachDeepBox: document.getElementById('ai-coach-deep-box'),
+    bodyShapeAvatar: document.getElementById('body-shape-avatar'),
+    btnToggleScan: document.getElementById('btn-toggle-scan'),
+    btnToggleSprite: document.getElementById('btn-toggle-sprite'),
+    bodyShapeSprite: document.getElementById('body-shape-sprite'),
+    spriteScanlineCanvas: document.getElementById('sprite-scanline-canvas'),
+    avatarPreviewBadge: document.getElementById('avatar-preview-badge'),
+    bodyMatrixGrid: document.getElementById('body-matrix-grid'),
+    bodyMatrixDetails: document.getElementById('body-matrix-details'),
     btnTriggerAiCoach: document.getElementById('btn-trigger-ai-coach'),
     btnCopyCoachPrompt: document.getElementById('btn-copy-coach-prompt'),
     aiCoachDeepResult: document.getElementById('ai-coach-deep-result'),
@@ -868,6 +876,717 @@ document.addEventListener('DOMContentLoaded', () => {
         </div>
       </div>
     `;
+  }
+
+  // --- BODY PRESETS DEFINITIONS FOR MALE & FEMALE 1-9 MATRIX ---
+  const BODY_PRESETS = {
+    male: [
+      { id: 1, name: "極度消瘦 (10%)", muscleRatio: 0.80, fatPercent: 10, label: "10% 體脂" },
+      { id: 2, name: "標準精實 (15%)", muscleRatio: 1.00, fatPercent: 15, label: "15% 體脂" },
+      { id: 3, name: "勻稱標準 (20%)", muscleRatio: 1.00, fatPercent: 20, label: "20% 體脂" },
+      { id: 4, name: "偏胖肉感 (25%)", muscleRatio: 0.95, fatPercent: 25, label: "25% 體脂" },
+      { id: 5, name: "輕度肥胖 (30%)", muscleRatio: 0.90, fatPercent: 30, label: "30% 體脂" },
+      { id: 6, name: "中度肥胖 (35%)", muscleRatio: 0.85, fatPercent: 35, label: "35% 體脂" },
+      { id: 7, name: "重度肥胖 (40%)", muscleRatio: 0.82, fatPercent: 40, label: "40% 體脂" },
+      { id: 8, name: "極度肥胖 (45%)", muscleRatio: 0.80, fatPercent: 45, label: "45% 體脂" },
+      { id: 9, name: "嚴重肥胖 (50%)", muscleRatio: 0.78, fatPercent: 50, label: "50% 體脂" }
+    ],
+    female: [
+      { id: 1, name: "極度消瘦 (纖細)", muscleRatio: 0.75, fatPercent: 15, label: "骨感" },
+      { id: 2, name: "偏瘦無肌 (苗條)", muscleRatio: 0.82, fatPercent: 18.5, label: "苗條" },
+      { id: 3, name: "陽光薄肌 (緊緻)", muscleRatio: 0.98, fatPercent: 16.5, label: "馬甲線" },
+      { id: 4, name: "標準精實 (勻稱)", muscleRatio: 1.05, fatPercent: 21.5, label: "運動健美" },
+      { id: 5, name: "結實壯碩 (健麗)", muscleRatio: 1.20, fatPercent: 22.5, label: "力量塑形" },
+      { id: 6, name: "健美健雅 (模特)", muscleRatio: 1.35, fatPercent: 14.5, label: "健美體態" },
+      { id: 7, name: "重裝厚實 (豐滿)", muscleRatio: 1.30, fatPercent: 24.5, label: "厚實" },
+      { id: 8, name: "豐滿曲線 (沙漏)", muscleRatio: 1.15, fatPercent: 28, label: "歐美風" },
+      { id: 9, name: "豐滿肉感 (微胖)", muscleRatio: 0.90, fatPercent: 33, label: "肉肉型" }
+    ]
+  };
+
+  // Distance helper to find closest body preset to current stats
+  function getClosestPresetIndex(gender, userMuscleRatio, userFatPercent) {
+    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    let minDistance = Infinity;
+    let closestIndex = 0;
+    for (let i = 0; i < presets.length; i++) {
+      const p = presets[i];
+      // Scale muscle ratio difference by 20 to balance fat percent difference scale
+      const dMuscle = (userMuscleRatio - p.muscleRatio) * 20;
+      const dFat = userFatPercent - p.fatPercent;
+      const distance = dMuscle * dMuscle + dFat * dFat;
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = i;
+      }
+    }
+    return closestIndex;
+  }
+
+  // --- Dynamic Body Shape Visualizer (Sci-Fi Scanner style) ---
+  function drawBodyShapeAvatar(gender, weight, height, muscle, fatPercent) {
+    if (!window.bodyAvatarPreviewMode) {
+      window.bodyAvatarState = { gender, weight, height, muscle, fatPercent };
+    }
+    
+    // Bind toggle buttons & events once on initialization
+    if (!window.bodyAvatarInitialized) {
+      window.bodyAvatarInitialized = true;
+      window.bodyAvatarViewMode = 'scan'; // default vector scan mode
+      window.bodyAvatarPreviewMode = false;
+      
+      if (el.btnToggleScan) {
+        el.btnToggleScan.addEventListener('click', () => {
+          window.bodyAvatarViewMode = 'scan';
+          if (el.btnToggleScan) el.btnToggleScan.classList.add('active');
+          if (el.btnToggleSprite) el.btnToggleSprite.classList.remove('active');
+          
+          const canvasEl = document.getElementById('body-shape-avatar');
+          const spriteEl = document.getElementById('body-shape-sprite');
+          if (canvasEl) canvasEl.style.display = 'block';
+          if (spriteEl) spriteEl.style.display = 'none';
+        });
+      }
+      
+      if (el.btnToggleSprite) {
+        el.btnToggleSprite.addEventListener('click', () => {
+          window.bodyAvatarViewMode = 'sprite';
+          if (el.btnToggleScan) el.btnToggleScan.classList.remove('active');
+          if (el.btnToggleSprite) el.btnToggleSprite.classList.add('active');
+          
+          const canvasEl = document.getElementById('body-shape-avatar');
+          const spriteEl = document.getElementById('body-shape-sprite');
+          if (canvasEl) canvasEl.style.display = 'none';
+          if (spriteEl) spriteEl.style.display = 'block';
+        });
+      }
+      
+      if (el.avatarPreviewBadge) {
+        el.avatarPreviewBadge.addEventListener('click', () => {
+          resetBodyAvatarPreview();
+        });
+      }
+    }
+    
+    if (!window.bodyAvatarAnimId) {
+      function render() {
+        const canvas = document.getElementById('body-shape-avatar');
+        if (!canvas) {
+          window.bodyAvatarAnimId = null;
+          return;
+        }
+        if (window.bodyAvatarState) {
+          const scanMode = window.bodyAvatarViewMode !== 'sprite';
+          if (scanMode) {
+            drawBodyShapeFrame(window.bodyAvatarState, canvas);
+          } else {
+            // Draw real body image sprite with dynamic micro-morphing
+            updateSpriteView(window.bodyAvatarState);
+            // Draw scrolling laser scanner line overlay
+            const spriteScanlineCanvas = document.getElementById('sprite-scanline-canvas');
+            if (spriteScanlineCanvas) {
+              drawSpriteScanlineFrame(spriteScanlineCanvas, window.bodyAvatarState);
+            }
+          }
+        }
+        window.bodyAvatarAnimId = requestAnimationFrame(render);
+      }
+      window.bodyAvatarAnimId = requestAnimationFrame(render);
+    }
+  }
+
+  function drawBodyShapeFrame(avatarState, canvas) {
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const { gender, weight, height, muscle, fatPercent } = avatarState;
+    
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Calculate size scaling parameters
+    const scaleX = canvas.width / 160;
+    const scaleYBase = canvas.height / 220;
+    const centerX = canvas.width / 2;
+    const isThumbnail = canvas.width < 100;
+    
+    // Custom user profile detection (179cm, 79kg, 23% body fat, flat belly, skinny limbs)
+    const isCustomProfile = gender === 'male' && 
+                            !window.bodyAvatarPreviewMode &&
+                            (height >= 177 && height <= 181) &&
+                            (fatPercent >= 21.5 && fatPercent <= 24.5);
+    
+    // Calculate biometric ratios
+    const heightM = height / 100;
+    const stdMuscleBase = heightM * heightM * 22 * 0.4;
+    const muscleRatio = muscle / (stdMuscleBase || 28);
+    const fatRatio = fatPercent / (gender === 'male' ? 18 : 25);
+    
+    // Clamp ratios to avoid extreme distortion
+    const cMuscle = Math.max(0.75, Math.min(1.45, muscleRatio));
+    // If custom profile, restrict fat waist bulge to keep it flat
+    const cFat = isCustomProfile ? 1.05 : Math.max(0.7, Math.min(2.5, fatRatio));
+    
+    // Custom slim limbs factor (skinny limbs for male/user, normal for matrix)
+    const limbScale = (gender === 'male') ? (isCustomProfile ? 0.74 : 0.82) : 0.95;
+    
+    // Dynamic width scaling based on muscle & fat ratios (scaled by scaleX and limbScale)
+    const shoulderWidth = (gender === 'male' ? 52 : 40) * cMuscle * scaleX;
+    const chestWidth = (gender === 'male' ? 46 : 38) * cMuscle * scaleX;
+    const waistWidth = (gender === 'male' ? 28 : 24) * cFat * scaleX;
+    const hipsWidth = (gender === 'male' ? 32 : 42) * (gender === 'male' ? (cMuscle * 0.3 + cFat * 0.7) : cFat) * scaleX;
+    const armThickness = (gender === 'male' ? 10 : 8) * (cMuscle * 0.75 + cFat * 0.25) * limbScale * scaleX;
+    const neckWidth = (gender === 'male' ? 10 : 8) * (cMuscle * 0.5 + cFat * 0.5) * scaleX;
+    
+    // Height scaling (Baseline standard: 175cm)
+    const heightScale = Math.max(0.85, Math.min(1.15, height / 175));
+    function scaleY(y) {
+      return (110 + (y - 110) * heightScale) * scaleYBase;
+    }
+    
+    // 1. Draw Grid Background for sci-fi look (skipped for matrix thumbnails)
+    if (!isThumbnail) {
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+      ctx.lineWidth = 1;
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      
+      // Vertical grid lines
+      for (let x = 20; x < canvas.width; x += 20) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, canvas.height);
+        ctx.stroke();
+      }
+      // Horizontal grid lines
+      for (let y = 20; y < canvas.height; y += 20) {
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(canvas.width, y);
+        ctx.stroke();
+      }
+
+      // Height limit indicators (sci-fi markers)
+      ctx.strokeStyle = 'rgba(139, 92, 246, 0.15)';
+      ctx.beginPath();
+      ctx.moveTo(10, scaleY(205));
+      ctx.lineTo(150, scaleY(205));
+      ctx.stroke();
+      
+      ctx.beginPath();
+      ctx.moveTo(10, scaleY(13));
+      ctx.lineTo(150, scaleY(13));
+      ctx.stroke();
+    }
+
+    // 2. Draw Body Shape Silhouette (Torso, Arms, Legs in one path)
+    ctx.beginPath();
+    
+    // Start at Neck Left
+    ctx.moveTo(centerX - neckWidth / 2, scaleY(40));
+    
+    // Shoulder Left
+    ctx.lineTo(centerX - shoulderWidth / 2, scaleY(48));
+    
+    // Outer Arm Left
+    ctx.quadraticCurveTo(centerX - shoulderWidth / 2 - armThickness, scaleY(90), centerX - shoulderWidth / 2 - armThickness * 0.7, scaleY(130));
+    ctx.quadraticCurveTo(centerX - shoulderWidth / 2 - armThickness * 0.5, scaleY(138), centerX - shoulderWidth / 2 - armThickness * 0.5, scaleY(140));
+    
+    // Inner Arm Left (to armpit)
+    ctx.quadraticCurveTo(centerX - shoulderWidth / 2 + armThickness * 0.2, scaleY(130), centerX - shoulderWidth / 2 + armThickness * 0.4, scaleY(90));
+    ctx.quadraticCurveTo(centerX - chestWidth / 2, scaleY(72), centerX - chestWidth / 2, scaleY(72));
+    
+    // Torso Left (Chest -> Waist -> Hips)
+    ctx.quadraticCurveTo(centerX - waistWidth / 2, scaleY(100), centerX - hipsWidth / 2, scaleY(125));
+    
+    // Outer Leg Left (made thinner by dividing by leg factor)
+    const legOuterFactor = (gender === 'male') ? 2.6 : 2.2;
+    const legInnerFactor = (gender === 'male') ? 5.2 : 5.8;
+    
+    ctx.quadraticCurveTo(centerX - hipsWidth / (legOuterFactor * 0.9), scaleY(165), centerX - hipsWidth / legOuterFactor, scaleY(200));
+    
+    // Left Foot Bottom
+    ctx.quadraticCurveTo(centerX - hipsWidth / legOuterFactor - 4 * scaleX, scaleY(205), centerX - hipsWidth / legOuterFactor - 4 * scaleX, scaleY(205));
+    ctx.lineTo(centerX - hipsWidth / legInnerFactor, scaleY(205));
+    
+    // Inner Leg Left -> Crotch
+    ctx.lineTo(centerX - hipsWidth / legInnerFactor, scaleY(165));
+    ctx.lineTo(centerX, scaleY(135));
+    
+    // Inner Leg Right
+    ctx.lineTo(centerX + hipsWidth / legInnerFactor, scaleY(165));
+    ctx.lineTo(centerX + hipsWidth / legInnerFactor, scaleY(205));
+    
+    // Right Foot Bottom
+    ctx.lineTo(centerX + hipsWidth / legOuterFactor + 4 * scaleX, scaleY(205));
+    ctx.quadraticCurveTo(centerX + hipsWidth / legOuterFactor + 4 * scaleX, scaleY(205), centerX + hipsWidth / legOuterFactor, scaleY(200));
+    
+    // Outer Leg Right
+    ctx.quadraticCurveTo(centerX + hipsWidth / (legOuterFactor * 0.9), scaleY(165), centerX + hipsWidth / legOuterFactor, scaleY(125));
+    
+    // Torso Right (Hips -> Waist -> Chest)
+    ctx.quadraticCurveTo(centerX + waistWidth / 2, scaleY(100), centerX + chestWidth / 2, scaleY(72));
+    
+    // Inner Arm Right (from armpit)
+    ctx.quadraticCurveTo(centerX + shoulderWidth / 2 - armThickness * 0.4, scaleY(90), centerX + shoulderWidth / 2 - armThickness * 0.2, scaleY(130));
+    ctx.quadraticCurveTo(centerX + shoulderWidth / 2 + armThickness * 0.5, scaleY(138), centerX + shoulderWidth / 2 + armThickness * 0.5, scaleY(140));
+    
+    // Outer Arm Right
+    ctx.quadraticCurveTo(centerX + shoulderWidth / 2 + armThickness * 0.7, scaleY(130), centerX + shoulderWidth / 2 + armThickness, scaleY(90));
+    ctx.lineTo(centerX + shoulderWidth / 2, scaleY(48));
+    
+    // Neck Right
+    ctx.lineTo(centerX + neckWidth / 2, scaleY(40));
+    
+    ctx.closePath();
+    
+    // Body Gradient Fill
+    const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    if (gender === 'male') {
+      grad.addColorStop(0, 'rgba(168, 85, 247, 0.1)'); // Purple
+      grad.addColorStop(0.5, 'rgba(139, 92, 246, 0.2)'); // Violet
+      grad.addColorStop(1, 'rgba(59, 130, 246, 0.3)'); // Blue
+    } else {
+      grad.addColorStop(0, 'rgba(244, 63, 94, 0.1)'); // Pink
+      grad.addColorStop(0.5, 'rgba(236, 72, 153, 0.2)'); // Hot Pink
+      grad.addColorStop(1, 'rgba(168, 85, 247, 0.3)'); // Purple
+    }
+    ctx.fillStyle = grad;
+    ctx.fill();
+    
+    // Body Neon Stroke Glow
+    ctx.shadowBlur = isThumbnail ? 3 : 10;
+    ctx.shadowColor = gender === 'male' ? 'rgba(139, 92, 246, 0.6)' : 'rgba(236, 72, 153, 0.6)';
+    ctx.strokeStyle = gender === 'male' ? 'rgba(147, 51, 234, 0.7)' : 'rgba(219, 39, 119, 0.7)';
+    ctx.lineWidth = isThumbnail ? 1 : 1.5;
+    ctx.stroke();
+    
+    // Draw Head separately
+    ctx.beginPath();
+    ctx.ellipse(centerX, scaleY(26), 9 * scaleX, 12 * heightScale * scaleYBase, 0, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+    ctx.stroke();
+
+    // Reset shadow for internal detail drawing
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+
+    // 3. Dynamic Muscle Definition Lines (Low Fat = high visibility; High Fat = invisible)
+    let muscleAlpha = (23 - fatPercent) / 13;
+    muscleAlpha = Math.max(0, Math.min(0.9, muscleAlpha)) * Math.max(0.7, Math.min(1.3, muscleRatio));
+    
+    // Force hide abs/muscle definitions for custom profile (肚子平坦，看不出腹肌)
+    if (isCustomProfile) {
+      muscleAlpha = 0;
+    }
+    
+    if (muscleAlpha > 0) {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${muscleAlpha * (isThumbnail ? 0.25 : 0.45)})`;
+      ctx.lineWidth = isThumbnail ? 0.7 : 1;
+      
+      if (gender === 'male') {
+        // Center Chest line
+        ctx.beginPath();
+        ctx.moveTo(centerX, scaleY(62));
+        ctx.lineTo(centerX, scaleY(78));
+        ctx.stroke();
+        
+        // Left Chest Plate
+        ctx.beginPath();
+        ctx.moveTo(centerX, scaleY(78));
+        ctx.quadraticCurveTo(centerX - chestWidth * 0.25, scaleY(78), centerX - chestWidth * 0.42, scaleY(74));
+        ctx.stroke();
+        
+        // Right Chest Plate
+        ctx.beginPath();
+        ctx.moveTo(centerX, scaleY(78));
+        ctx.quadraticCurveTo(centerX + chestWidth * 0.25, scaleY(78), centerX + chestWidth * 0.42, scaleY(74));
+        ctx.stroke();
+        
+        // Abs vertical midline
+        ctx.beginPath();
+        ctx.moveTo(centerX, scaleY(82));
+        ctx.lineTo(centerX, scaleY(114));
+        ctx.stroke();
+        
+        // Abs horizontal segments
+        // Row 1
+        ctx.beginPath();
+        ctx.moveTo(centerX - waistWidth * 0.22, scaleY(90));
+        ctx.lineTo(centerX + waistWidth * 0.22, scaleY(90));
+        ctx.stroke();
+        
+        // Row 2
+        ctx.beginPath();
+        ctx.moveTo(centerX - waistWidth * 0.22, scaleY(98));
+        ctx.lineTo(centerX + waistWidth * 0.22, scaleY(98));
+        ctx.stroke();
+        
+        // Row 3
+        ctx.beginPath();
+        ctx.moveTo(centerX - waistWidth * 0.18, scaleY(106));
+        ctx.lineTo(centerX + waistWidth * 0.18, scaleY(106));
+        ctx.stroke();
+      } else {
+        // Female Cleavage line
+        ctx.beginPath();
+        ctx.moveTo(centerX, scaleY(66));
+        ctx.quadraticCurveTo(centerX - 4 * scaleX, scaleY(73), centerX - 12 * scaleX, scaleY(73));
+        ctx.moveTo(centerX, scaleY(66));
+        ctx.quadraticCurveTo(centerX + 4 * scaleX, scaleY(73), centerX + 12 * scaleX, scaleY(73));
+        ctx.stroke();
+
+        // Female 11-line Abs
+        ctx.beginPath();
+        ctx.moveTo(centerX - waistWidth * 0.11, scaleY(82));
+        ctx.quadraticCurveTo(centerX - waistWidth * 0.09, scaleY(98), centerX - waistWidth * 0.07, scaleY(112));
+        ctx.moveTo(centerX + waistWidth * 0.11, scaleY(82));
+        ctx.quadraticCurveTo(centerX + waistWidth * 0.09, scaleY(98), centerX + waistWidth * 0.07, scaleY(112));
+        ctx.stroke();
+      }
+      
+      // Inguinal creases (Mermaid lines, present in both genders)
+      ctx.beginPath();
+      ctx.moveTo(centerX - waistWidth * 0.32, scaleY(114));
+      ctx.quadraticCurveTo(centerX - waistWidth * 0.15, scaleY(124), centerX - 4 * scaleX, scaleY(127));
+      ctx.moveTo(centerX + waistWidth * 0.32, scaleY(114));
+      ctx.quadraticCurveTo(centerX + waistWidth * 0.15, scaleY(124), centerX + 4 * scaleX, scaleY(127));
+      ctx.stroke();
+    }
+    
+    // 4. Soft Belly Volume Shading for high fat percentage (skipped for custom flat belly profile)
+    let bellyAlpha = 0;
+    if (!isCustomProfile) {
+      if (gender === 'male') {
+        if (fatPercent > 16) bellyAlpha = (fatPercent - 16) / 12;
+      } else {
+        if (fatPercent > 22) bellyAlpha = (fatPercent - 22) / 12;
+      }
+      bellyAlpha = Math.max(0, Math.min(0.7, bellyAlpha));
+    }
+    
+    if (bellyAlpha > 0) {
+      const bellyRadGrad = ctx.createRadialGradient(centerX, scaleY(105), 2 * scaleX, centerX, scaleY(105), waistWidth * 0.4);
+      bellyRadGrad.addColorStop(0, `rgba(255, 255, 255, ${bellyAlpha * 0.15})`);
+      bellyRadGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = bellyRadGrad;
+      ctx.beginPath();
+      ctx.arc(centerX, scaleY(105), waistWidth * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      
+      // Belly fold contour line
+      if (!isThumbnail && fatPercent > (gender === 'male' ? 23 : 29)) {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${bellyAlpha * 0.25})`;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(centerX - waistWidth * 0.18, scaleY(108));
+        ctx.quadraticCurveTo(centerX, scaleY(111), centerX + waistWidth * 0.18, scaleY(108));
+        ctx.stroke();
+      }
+    }
+    
+    // Draw soft fat chest contours for higher fat males (without defined pectoral plate)
+    if (gender === 'male' && fatPercent > 22 && !isThumbnail) {
+      ctx.strokeStyle = `rgba(255, 255, 255, ${isCustomProfile ? 0.12 : 0.25})`;
+      ctx.lineWidth = 1;
+      
+      // Left soft breast fat curve
+      ctx.beginPath();
+      ctx.moveTo(centerX, scaleY(76));
+      ctx.quadraticCurveTo(centerX - chestWidth * 0.2, scaleY(80), centerX - chestWidth * 0.4, scaleY(76));
+      ctx.stroke();
+      
+      // Right soft breast fat curve
+      ctx.beginPath();
+      ctx.moveTo(centerX, scaleY(76));
+      ctx.quadraticCurveTo(centerX + chestWidth * 0.2, scaleY(80), centerX + chestWidth * 0.4, scaleY(76));
+      ctx.stroke();
+    }
+    
+    // 5. Dynamic Scrolling Laser Scanline (skipped for matrix thumbnails)
+    if (!isThumbnail) {
+      if (window.bodyAvatarScanY === undefined) {
+        window.bodyAvatarScanY = 30;
+      }
+      
+      const scanY = window.bodyAvatarScanY;
+      
+      // Neon laser line
+      const laserGrad = ctx.createLinearGradient(20, 0, 140, 0);
+      laserGrad.addColorStop(0, 'rgba(16, 185, 129, 0)');
+      laserGrad.addColorStop(0.3, 'rgba(16, 185, 129, 0.4)');
+      laserGrad.addColorStop(0.5, 'rgba(52, 211, 153, 1)');
+      laserGrad.addColorStop(0.7, 'rgba(16, 185, 129, 0.4)');
+      laserGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      
+      ctx.strokeStyle = laserGrad;
+      ctx.lineWidth = 2;
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = 'rgba(52, 211, 153, 0.8)';
+      
+      ctx.beginPath();
+      ctx.moveTo(20, scanY);
+      ctx.lineTo(140, scanY);
+      ctx.stroke();
+      
+      // Reset shadow
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      
+      const laserGlow = ctx.createLinearGradient(0, scanY - 5, 0, scanY + 5);
+      laserGlow.addColorStop(0, 'rgba(16, 185, 129, 0)');
+      laserGlow.addColorStop(0.5, 'rgba(16, 185, 129, 0.06)');
+      laserGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      ctx.fillStyle = laserGlow;
+      ctx.fillRect(20, scanY - 5, 120, 10);
+    }
+  }
+
+  // Draw scrolling scanner overlay on top of the Threads photo
+  function drawSpriteScanlineFrame(canvas, avatarState) {
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const heightScale = Math.max(0.85, Math.min(1.15, (avatarState.height || 175) / 175));
+    function scaleY(y) {
+      return (110 + (y - 110) * heightScale) * (canvas.height / 220);
+    }
+    
+    if (window.bodyAvatarScanY === undefined) {
+      window.bodyAvatarScanY = 30;
+    }
+    
+    const scanY = window.bodyAvatarScanY;
+    
+    // Laser Beam Line
+    const laserGrad = ctx.createLinearGradient(15, 0, 145, 0);
+    laserGrad.addColorStop(0, 'rgba(16, 185, 129, 0)');
+    laserGrad.addColorStop(0.3, 'rgba(16, 185, 129, 0.4)');
+    laserGrad.addColorStop(0.5, 'rgba(52, 211, 153, 1)');
+    laserGrad.addColorStop(0.7, 'rgba(16, 185, 129, 0.4)');
+    laserGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    
+    ctx.strokeStyle = laserGrad;
+    ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 8;
+    ctx.shadowColor = 'rgba(52, 211, 153, 0.8)';
+    
+    ctx.beginPath();
+    ctx.moveTo(15, scanY);
+    ctx.lineTo(145, scanY);
+    ctx.stroke();
+    
+    // Reset shadow
+    ctx.shadowBlur = 0;
+    ctx.shadowColor = 'transparent';
+    
+    // Laser Beam Glow Block
+    const laserGlow = ctx.createLinearGradient(0, scanY - 6, 0, scanY + 6);
+    laserGlow.addColorStop(0, 'rgba(16, 185, 129, 0)');
+    laserGlow.addColorStop(0.5, 'rgba(16, 185, 129, 0.08)');
+    laserGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    ctx.fillStyle = laserGlow;
+    ctx.fillRect(15, scanY - 6, 130, 12);
+  }
+
+  // Update Threads photo cropped view with micro-morphing dimensions
+  function updateSpriteView(avatarState) {
+    const spriteDiv = el.bodyShapeSprite || document.getElementById('body-shape-sprite');
+    if (!spriteDiv) return;
+    
+    const { gender, height, muscle, fatPercent } = avatarState;
+    
+    // Check if the user is looking at their actual estimated stats (not previewing)
+    // and they match the specific custom body profile (179cm, 79kg, 23% body fat)
+    const isActualUserCustom = !window.bodyAvatarPreviewMode && 
+                               gender === 'male' && 
+                               (height >= 177 && height <= 181) && 
+                               (fatPercent >= 21.5 && fatPercent <= 24.5);
+                               
+    if (isActualUserCustom) {
+      // Load the custom user photo showing skinny limbs and a flat belly
+      spriteDiv.style.backgroundImage = "url('./male_user_shape_23pct.png')";
+      spriteDiv.style.backgroundSize = "contain";
+      spriteDiv.style.backgroundPosition = "center center";
+      spriteDiv.style.transform = "scale(1, 1)"; // reset micro-morphing for custom image
+      return;
+    }
+    
+    // Default 1-9 sprite loading
+    if (gender === 'male') {
+      spriteDiv.style.backgroundImage = "url('./male_body_shapes.png')";
+      spriteDiv.style.backgroundSize = "300% 300%";
+      
+      const heightM = height / 100;
+      const stdMuscleBase = heightM * heightM * 22 * 0.4;
+      const muscleRatio = muscle / (stdMuscleBase || 28);
+      
+      const closestIdx = getClosestPresetIndex(gender, muscleRatio, fatPercent);
+      const presets = BODY_PRESETS.male;
+      const preset = presets[closestIdx];
+      
+      // 3x3 grid position
+      const row = Math.floor(closestIdx / 3);
+      const col = closestIdx % 3;
+      spriteDiv.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+      
+      // Micro-morphing
+      const fatDiff = fatPercent - preset.fatPercent;
+      const muscleDiff = muscleRatio - preset.muscleRatio;
+      
+      const fatScaleX = fatDiff * 0.012;
+      const muscleScaleX = muscleDiff * 0.15;
+      const scaleX = Math.max(0.9, Math.min(1.1, 1 + fatScaleX - muscleScaleX));
+      const heightScale = Math.max(0.9, Math.min(1.1, height / 175));
+      
+      spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
+    } else {
+      spriteDiv.style.backgroundImage = "url('./female_body_shapes.png')";
+      spriteDiv.style.backgroundSize = "300% 300%";
+      
+      const heightM = height / 100;
+      const stdMuscleBase = heightM * heightM * 22 * 0.4;
+      const muscleRatio = muscle / (stdMuscleBase || 28);
+      
+      const closestIdx = getClosestPresetIndex(gender, muscleRatio, fatPercent);
+      const presets = BODY_PRESETS.female;
+      const preset = presets[closestIdx];
+      
+      // 3x3 grid position
+      const row = Math.floor(closestIdx / 3);
+      const col = closestIdx % 3;
+      spriteDiv.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+      
+      // Micro-morphing
+      const fatDiff = fatPercent - preset.fatPercent;
+      const muscleDiff = muscleRatio - preset.muscleRatio;
+      
+      const fatScaleX = fatDiff * 0.012;
+      const muscleScaleX = muscleDiff * 0.15;
+      const scaleX = Math.max(0.9, Math.min(1.1, 1 + fatScaleX - muscleScaleX));
+      const heightScale = Math.max(0.9, Math.min(1.1, height / 175));
+      
+      spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
+    }
+  }
+
+  // Render 3x3 Grid Matrix thumbnails dynamically using CSS sprite sheets
+  function renderBodyShapeMatrix(gender, height, userMuscleRatio, userFatPercent) {
+    const grid = el.bodyMatrixGrid || document.getElementById('body-matrix-grid');
+    if (!grid) return;
+    
+    const closestIdx = getClosestPresetIndex(gender, userMuscleRatio, userFatPercent);
+    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    
+    const existingCells = grid.querySelectorAll('.matrix-cell');
+    const needRebuild = existingCells.length !== 9 || grid.dataset.gender !== gender;
+    
+    if (needRebuild) {
+      grid.innerHTML = '';
+      grid.dataset.gender = gender;
+      
+      presets.forEach((p, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'matrix-cell';
+        cell.dataset.index = idx;
+        
+        if (window.bodyAvatarPreviewMode && window.bodyAvatarPreviewIndex === idx) {
+          cell.classList.add('active-preset');
+        }
+        if (idx === closestIdx) {
+          cell.classList.add('closest-preset');
+        }
+        
+        // Define cropped thumbnail styling (both are 3x3 grids)
+        const isMale = gender === 'male';
+        const imgUrl = isMale ? './male_body_shapes.png' : './female_body_shapes.png';
+        const bgSize = '300% 300%';
+        const bgPos = `${(idx % 3) * 50}% ${Math.floor(idx / 3) * 50}%`;
+        
+        cell.innerHTML = `
+          <span class="num-label">#${idx + 1} ${p.label}</span>
+          <div class="matrix-thumbnail" style="width: 48px; height: 68px; background-image: url('${imgUrl}'); background-repeat: no-repeat; background-size: ${bgSize}; background-position: ${bgPos}; border-radius: 6px; margin: 4px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);"></div>
+          <span class="name-label">${p.name.split(' (')[0]}</span>
+          <span class="stats-label">脂: ${p.fatPercent}%</span>
+        `;
+        
+        cell.addEventListener('click', () => {
+          triggerBodyAvatarPreview(idx);
+        });
+        
+        grid.appendChild(cell);
+      });
+    } else {
+      existingCells.forEach((cell, idx) => {
+        cell.classList.remove('closest-preset', 'active-preset');
+        
+        if (idx === closestIdx) {
+          cell.classList.add('closest-preset');
+        }
+        if (window.bodyAvatarPreviewMode && window.bodyAvatarPreviewIndex === idx) {
+          cell.classList.add('active-preset');
+        }
+      });
+    }
+  }
+
+  // Trigger grid cell preview
+  function triggerBodyAvatarPreview(index) {
+    const gender = state.profile.gender || 'male';
+    const height = parseFloat(state.profile.height) || 175;
+    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    const p = presets[index];
+    
+    window.bodyAvatarPreviewMode = true;
+    window.bodyAvatarPreviewIndex = index;
+    
+    const stdMuscleBase = (height / 100) ** 2 * 22 * 0.4;
+    const previewMuscle = stdMuscleBase * p.muscleRatio;
+    
+    window.bodyAvatarState = {
+      gender,
+      weight: 70,
+      height,
+      muscle: previewMuscle,
+      fatPercent: p.fatPercent
+    };
+    
+    if (el.avatarPreviewBadge) {
+      el.avatarPreviewBadge.style.display = 'flex';
+      el.avatarPreviewBadge.querySelector('span').textContent = `⚠️ 預覽中：${p.name.split(' (')[0]}（點此還原）`;
+    }
+    
+    const cells = document.querySelectorAll('.matrix-cell');
+    cells.forEach((cell, idx) => {
+      if (idx === index) {
+        cell.classList.add('active-preset');
+      } else {
+        cell.classList.remove('active-preset');
+      }
+    });
+    
+    const scanMode = window.bodyAvatarViewMode !== 'sprite';
+    if (scanMode) {
+      const canvas = document.getElementById('body-shape-avatar');
+      if (canvas) drawBodyShapeFrame(window.bodyAvatarState, canvas);
+    } else {
+      updateSpriteView(window.bodyAvatarState);
+    }
+  }
+
+  // Cancel preview and restore actual user stats
+  function resetBodyAvatarPreview() {
+    window.bodyAvatarPreviewMode = false;
+    window.bodyAvatarPreviewIndex = null;
+    if (el.avatarPreviewBadge) el.avatarPreviewBadge.style.display = 'none';
+    
+    const cells = document.querySelectorAll('.matrix-cell');
+    cells.forEach(c => c.classList.remove('active-preset'));
+    
+    updateCumulativeBodyStateUI();
   }
 
   // --- Calculate Cumulative Body State based on history ---
@@ -1820,6 +2539,19 @@ document.addEventListener('DOMContentLoaded', () => {
         el.dailyComparisonBox.style.display = 'none';
         if (el.aiCoachDeepBox) el.aiCoachDeepBox.style.display = 'none';
       }
+    }
+    
+    // Draw/update body shape avatar scanner with the latest parameters
+    if (el.bodyShapeAvatar) {
+      const p = state.profile;
+      drawBodyShapeAvatar(p.gender, est.weight, p.height, est.muscle, est.fatPercent);
+      
+      // Calculate ratios and update the 1-9 body shape matrix highlights
+      const heightM = p.height / 100;
+      const stdMuscleBase = heightM * heightM * 22 * 0.4;
+      const currentMuscleRatio = est.muscle / (stdMuscleBase || 28);
+      
+      renderBodyShapeMatrix(p.gender, p.height, currentMuscleRatio, est.fatPercent);
     }
   }
 

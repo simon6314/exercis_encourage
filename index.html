@@ -241,6 +241,42 @@
                   </div>
                 </div>
 
+                <div class="avatar-visualizer-container" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
+                  <div class="avatar-toggle-buttons" style="display: flex; background: rgba(0, 0, 0, 0.3); border-radius: 20px; padding: 3px; border: 1px solid rgba(255,255,255,0.05); gap: 4px; margin-bottom: 6px;">
+                    <button type="button" id="btn-toggle-scan" class="avatar-toggle-btn active" style="background: var(--accent-purple); color: white; border: none; border-radius: 16px; padding: 4px 12px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;">科技投影</button>
+                    <button type="button" id="btn-toggle-sprite" class="avatar-toggle-btn" style="background: transparent; color: var(--text-secondary); border: none; border-radius: 16px; padding: 4px 12px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;">寫實對照</button>
+                  </div>
+                  
+                  <div style="position: relative; width: 160px; height: 220px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden;" id="avatar-viewport">
+                    <canvas id="body-shape-avatar" width="160" height="220" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 2;"></canvas>
+                    <div id="body-shape-sprite" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
+                      <canvas id="sprite-scanline-canvas" width="160" height="220" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
+                    </div>
+                  </div>
+                  
+                  <div id="avatar-preview-badge" style="display: none; align-items: center; justify-content: center; gap: 6px; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); padding: 4px 12px; border-radius: 20px; font-size: 10px; color: #f87171; cursor: pointer; transition: background 0.2s; font-weight: 600; margin-top: 4px; box-shadow: 0 2px 8px rgba(239,68,68,0.15);">
+                    <span>⚠️ 預覽中（點此返回當前體態）</span>
+                  </div>
+                </div>
+
+                <details class="scenarios-details" id="body-matrix-details" style="margin: 4px 0 12px 0; background: rgba(255, 255, 255, 0.01); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); padding: 8px; width: 100%;">
+                  <summary class="scenarios-summary" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; outline: none; list-style: none;">
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple-light)" stroke-width="2.5" style="vertical-align: middle;">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                      </svg>
+                      Threads 熱門 1-9 號體態對照矩陣
+                    </span>
+                    <span id="body-matrix-toggle-arrow" style="font-size: 9px; opacity: 0.7;">▼</span>
+                  </summary>
+                  <div id="body-matrix-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 8px;">
+                    <!-- 由 JavaScript 動態生成 9 個體態單元格 -->
+                  </div>
+                </details>
+
                 <div class="cumulative-apply-section" style="display: flex; flex-direction: column; gap: 8px;">
                   <p id="est-summary-text" style="font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin: 0;">
                     正在載入歷史累積數據...

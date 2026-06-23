@@ -2013,3 +2013,124 @@ a:hover {
 .scenarios-summary:hover {
   color: var(--text-primary);
 }
+
+/* --- Body Shape Avatar Visualizer --- */
+.avatar-visualizer-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin: 12px 0 18px 0;
+  width: 100%;
+}
+
+#body-shape-avatar {
+  background: rgba(0, 0, 0, 0.25);
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: 
+    inset 0 0 20px rgba(139, 92, 246, 0.05),
+    0 4px 20px rgba(0, 0, 0, 0.3);
+  transition: border-color 0.5s ease, box-shadow 0.5s ease;
+}
+
+#body-shape-avatar:hover {
+  border-color: rgba(139, 92, 246, 0.25);
+  box-shadow: 
+    inset 0 0 25px rgba(139, 92, 246, 0.1),
+    0 6px 25px rgba(139, 92, 246, 0.15);
+}
+
+/* --- Avatar Toggle Buttons & Viewport Styling --- */
+.avatar-toggle-btn {
+  background: transparent;
+  color: var(--text-secondary);
+  border: none;
+  border-radius: 16px;
+  padding: 4px 12px;
+  font-size: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  outline: none;
+}
+
+.avatar-toggle-btn:hover {
+  color: var(--text-primary);
+}
+
+.avatar-toggle-btn.active {
+  background: var(--accent-purple) !important;
+  color: white !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+}
+
+/* --- 1-9 Body Shape Matrix Grid Cell Styling --- */
+.matrix-cell {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 8px 4px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+
+.matrix-cell:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(139, 92, 246, 0.25);
+  transform: translateY(-2px);
+}
+
+.matrix-cell.active-preset {
+  background: rgba(139, 92, 246, 0.15);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 12px rgba(139, 92, 246, 0.3);
+}
+
+.matrix-cell.closest-preset {
+  border-color: rgba(16, 185, 129, 0.6);
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.matrix-cell.closest-preset::after {
+  content: "當前";
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--accent-green);
+  color: #0b1329;
+  font-size: 7px;
+  font-weight: 800;
+  padding: 1px 4px;
+  border-bottom-left-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  text-transform: uppercase;
+}
+
+.matrix-cell span.num-label {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.matrix-cell span.name-label {
+  font-size: 9px;
+  color: var(--text-primary);
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.matrix-cell span.stats-label {
+  font-size: 8px;
+  color: var(--text-secondary);
+  scale: 0.85;
+  margin-top: 2px;
+  opacity: 0.8;
+}
+
