@@ -936,43 +936,56 @@ document.addEventListener('DOMContentLoaded', () => {
     return closestIndex;
   }
 
+  // Helper to find the two closest body presets and calculate their blending weights (opacities)
+  function getTwoClosestPresets(gender, userMuscleRatio, userFatPercent) {
+    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    const list = [];
+    for (let i = 0; i < presets.length; i++) {
+      const p = presets[i];
+      const dMuscle = (userMuscleRatio - p.muscleRatio) * 20;
+      const dFat = userFatPercent - p.fatPercent;
+      const distance = dMuscle * dMuscle + dFat * dFat;
+      list.push({ index: i, distance: distance, preset: p });
+    }
+    
+    // Sort by distance ascending
+    list.sort((a, b) => a.distance - b.distance);
+    
+    const first = list[0];
+    const second = list[1];
+    
+    // Inverse distance weighting
+    const eps = 1e-4;
+    const w1 = 1.0 / (Math.sqrt(first.distance) + eps);
+    const w2 = 1.0 / (Math.sqrt(second.distance) + eps);
+    const totalW = w1 + w2;
+    
+    let opacityA = w1 / totalW;
+    let opacityB = w2 / totalW;
+    
+    // If the closest is extremely close, make it dominant to avoid ghosting
+    if (first.distance < 0.05) {
+      opacityA = 1.0;
+      opacityB = 0.0;
+    }
+    
+    return {
+      primary: { index: first.index, preset: first.preset, opacity: opacityA },
+      secondary: { index: second.index, preset: second.preset, opacity: opacityB }
+    };
+  }
+
   // --- Dynamic Body Shape Visualizer (Sci-Fi Scanner style) ---
   function drawBodyShapeAvatar(gender, weight, height, muscle, fatPercent) {
     if (!window.bodyAvatarPreviewMode) {
       window.bodyAvatarState = { gender, weight, height, muscle, fatPercent };
     }
     
-    // Bind toggle buttons & events once on initialization
+    // Bind preview badge click event once on initialization
     if (!window.bodyAvatarInitialized) {
       window.bodyAvatarInitialized = true;
-      window.bodyAvatarViewMode = 'scan'; // default vector scan mode
+      window.bodyAvatarViewMode = 'sprite'; // only sprite mode
       window.bodyAvatarPreviewMode = false;
-      
-      if (el.btnToggleScan) {
-        el.btnToggleScan.addEventListener('click', () => {
-          window.bodyAvatarViewMode = 'scan';
-          if (el.btnToggleScan) el.btnToggleScan.classList.add('active');
-          if (el.btnToggleSprite) el.btnToggleSprite.classList.remove('active');
-          
-          const canvasEl = document.getElementById('body-shape-avatar');
-          const spriteEl = document.getElementById('body-shape-sprite');
-          if (canvasEl) canvasEl.style.display = 'block';
-          if (spriteEl) spriteEl.style.display = 'none';
-        });
-      }
-      
-      if (el.btnToggleSprite) {
-        el.btnToggleSprite.addEventListener('click', () => {
-          window.bodyAvatarViewMode = 'sprite';
-          if (el.btnToggleScan) el.btnToggleScan.classList.remove('active');
-          if (el.btnToggleSprite) el.btnToggleSprite.classList.add('active');
-          
-          const canvasEl = document.getElementById('body-shape-avatar');
-          const spriteEl = document.getElementById('body-shape-sprite');
-          if (canvasEl) canvasEl.style.display = 'none';
-          if (spriteEl) spriteEl.style.display = 'block';
-        });
-      }
       
       if (el.avatarPreviewBadge) {
         el.avatarPreviewBadge.addEventListener('click', () => {
@@ -1015,46 +1028,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     if (!window.bodyAvatarAnimId) {
       function render() {
-        const canvas = document.getElementById('body-shape-avatar');
-        if (!canvas) {
+        const spriteEl = document.getElementById('body-shape-sprite');
+        if (!spriteEl) {
           window.bodyAvatarAnimId = null;
           return;
         }
         if (window.bodyAvatarState) {
-          const scanMode = window.bodyAvatarViewMode !== 'sprite';
-          if (scanMode) {
-            drawBodyShapeFrame(window.bodyAvatarState, canvas);
-          } else {
-            // Draw real body image sprite with dynamic micro-morphing
-            updateSpriteView(window.bodyAvatarState, false);
-            // Draw scrolling laser scanner line overlay
-            const spriteScanlineCanvas = document.getElementById('sprite-scanline-canvas');
-            if (spriteScanlineCanvas) {
-              drawSpriteScanlineFrame(spriteScanlineCanvas, window.bodyAvatarState);
-            }
+          // Draw real body image sprite with dynamic dual-layer blending and micro-morphing
+          updateSpriteView(window.bodyAvatarState, false);
+          
+          // Draw scrolling laser scanner line overlay
+          const spriteScanlineCanvas = document.getElementById('sprite-scanline-canvas');
+          if (spriteScanlineCanvas) {
+            drawSpriteScanlineFrame(spriteScanlineCanvas, window.bodyAvatarState);
           }
 
           // Draw to lightbox elements if active
           const lightboxEl = document.getElementById('body-shape-lightbox');
           if (lightboxEl && lightboxEl.classList.contains('active')) {
-            const lbCanvas = document.getElementById('lightbox-body-avatar');
             const lbSprite = document.getElementById('lightbox-body-sprite');
             const lbScanline = document.getElementById('lightbox-sprite-scanline');
-            if (scanMode) {
-              if (lbCanvas) {
-                lbCanvas.style.display = 'block';
-                drawBodyShapeFrame(window.bodyAvatarState, lbCanvas);
-              }
-              if (lbSprite) lbSprite.style.display = 'none';
-            } else {
-              if (lbCanvas) lbCanvas.style.display = 'none';
-              if (lbSprite) {
-                lbSprite.style.display = 'block';
-                updateSpriteView(window.bodyAvatarState, true);
-              }
-              if (lbScanline) {
-                drawSpriteScanlineFrame(lbScanline, window.bodyAvatarState);
-              }
+            if (lbSprite) {
+              updateSpriteView(window.bodyAvatarState, true);
+            }
+            if (lbScanline) {
+              drawSpriteScanlineFrame(lbScanline, window.bodyAvatarState);
             }
           }
         }
@@ -1485,6 +1483,14 @@ document.addEventListener('DOMContentLoaded', () => {
       : (el.bodyShapeSprite || document.getElementById('body-shape-sprite'));
     if (!spriteDiv) return;
     
+    // Fetch the primary and secondary layer divs
+    const layerPrimary = isLightbox 
+      ? document.getElementById('lightbox-sprite-layer-primary')
+      : document.getElementById('body-sprite-layer-primary');
+    const layerSecondary = isLightbox 
+      ? document.getElementById('lightbox-sprite-layer-secondary')
+      : document.getElementById('body-sprite-layer-secondary');
+      
     const { gender, height, muscle, fatPercent } = avatarState;
     
     // Check if the user is looking at their actual estimated stats (not previewing)
@@ -1495,68 +1501,82 @@ document.addEventListener('DOMContentLoaded', () => {
                                (fatPercent >= 21.5 && fatPercent <= 24.5);
                                
     if (isActualUserCustom) {
-      // Load the custom user photo showing skinny limbs and a flat belly
-      spriteDiv.style.backgroundImage = "url('./male_user_shape_23pct.png')";
-      spriteDiv.style.backgroundSize = "contain";
-      spriteDiv.style.backgroundPosition = "center center";
+      spriteDiv.style.backgroundImage = "none";
       spriteDiv.style.transform = "scale(1, 1)"; // reset micro-morphing for custom image
+      
+      if (layerPrimary) {
+        layerPrimary.style.backgroundImage = "url('./male_user_shape_23pct.png')";
+        layerPrimary.style.backgroundSize = "contain";
+        layerPrimary.style.backgroundPosition = "center center";
+        layerPrimary.style.opacity = "1.0";
+      }
+      if (layerSecondary) {
+        layerSecondary.style.backgroundImage = "none";
+        layerSecondary.style.opacity = "0.0";
+      }
       return;
     }
     
-    // Default 1-9 sprite loading
-    if (gender === 'male') {
-      spriteDiv.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
-      spriteDiv.style.backgroundSize = "300% 300%";
-      
-      const heightM = height / 100;
-      const stdMuscleBase = heightM * heightM * 22 * 0.4;
-      const muscleRatio = muscle / (stdMuscleBase || 28);
-      
-      const closestIdx = getClosestPresetIndex(gender, muscleRatio, fatPercent);
-      const presets = BODY_PRESETS.male;
-      const preset = presets[closestIdx];
-      
-      // Custom 3x3 grid position offsets for male sprite sheet
-      const customPos = MALE_SPRITE_POSITIONS[closestIdx];
-      spriteDiv.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
-      
-      // Micro-morphing
-      const fatDiff = fatPercent - preset.fatPercent;
-      const muscleDiff = muscleRatio - preset.muscleRatio;
-      
-      const fatScaleX = fatDiff * 0.012;
-      const muscleScaleX = muscleDiff * 0.15;
-      const scaleX = Math.max(0.9, Math.min(1.1, 1 + fatScaleX - muscleScaleX));
-      const heightScale = Math.max(0.9, Math.min(1.1, height / 175));
-      
-      spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
-    } else {
-      spriteDiv.style.backgroundImage = "url('./female_body_shapes.png')";
-      spriteDiv.style.backgroundSize = "300% 300%";
-      
-      const heightM = height / 100;
-      const stdMuscleBase = heightM * heightM * 22 * 0.4;
-      const muscleRatio = muscle / (stdMuscleBase || 28);
-      
-      const closestIdx = getClosestPresetIndex(gender, muscleRatio, fatPercent);
-      const presets = BODY_PRESETS.female;
-      const preset = presets[closestIdx];
-      
-      // 3x3 grid position
-      const row = Math.floor(closestIdx / 3);
-      const col = closestIdx % 3;
-      spriteDiv.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
-      
-      // Micro-morphing
-      const fatDiff = fatPercent - preset.fatPercent;
-      const muscleDiff = muscleRatio - preset.muscleRatio;
-      
-      const fatScaleX = fatDiff * 0.012;
-      const muscleScaleX = muscleDiff * 0.15;
-      const scaleX = Math.max(0.9, Math.min(1.1, 1 + fatScaleX - muscleScaleX));
-      const heightScale = Math.max(0.9, Math.min(1.1, height / 175));
-      
-      spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
+    // Clear background on container itself to avoid double images
+    spriteDiv.style.backgroundImage = "none";
+    
+    const heightM = height / 100;
+    const stdMuscleBase = heightM * heightM * 22 * 0.4;
+    const muscleRatio = muscle / (stdMuscleBase || 28);
+    
+    // Find the two closest presets and calculate relative opacities
+    const blend = getTwoClosestPresets(gender, muscleRatio, fatPercent);
+    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    
+    // We apply micro-morphing based on the closest (primary) preset
+    const primaryPreset = blend.primary.preset;
+    const fatDiff = fatPercent - primaryPreset.fatPercent;
+    const muscleDiff = muscleRatio - primaryPreset.muscleRatio;
+    
+    const fatScaleX = fatDiff * 0.012;
+    const muscleScaleX = muscleDiff * 0.15;
+    const scaleX = Math.max(0.9, Math.min(1.1, 1 + fatScaleX - muscleScaleX));
+    const heightScale = Math.max(0.9, Math.min(1.1, height / 175));
+    
+    spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
+    
+    // Render Primary Layer
+    if (layerPrimary) {
+      const idxA = blend.primary.index;
+      if (gender === 'male') {
+        layerPrimary.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
+        const customPos = MALE_SPRITE_POSITIONS[idxA];
+        layerPrimary.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
+      } else {
+        layerPrimary.style.backgroundImage = "url('./female_body_shapes.png')";
+        const col = idxA % 3;
+        const row = Math.floor(idxA / 3);
+        layerPrimary.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+      }
+      layerPrimary.style.backgroundSize = "300% 300%";
+      layerPrimary.style.opacity = blend.primary.opacity.toString();
+    }
+    
+    // Render Secondary Layer
+    if (layerSecondary) {
+      if (blend.secondary.opacity > 0.01) {
+        const idxB = blend.secondary.index;
+        if (gender === 'male') {
+          layerSecondary.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
+          const customPos = MALE_SPRITE_POSITIONS[idxB];
+          layerSecondary.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
+        } else {
+          layerSecondary.style.backgroundImage = "url('./female_body_shapes.png')";
+          const col = idxB % 3;
+          const row = Math.floor(idxB / 3);
+          layerSecondary.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+        }
+        layerSecondary.style.backgroundSize = "300% 300%";
+        layerSecondary.style.opacity = blend.secondary.opacity.toString();
+      } else {
+        layerSecondary.style.backgroundImage = "none";
+        layerSecondary.style.opacity = "0.0";
+      }
     }
   }
 
@@ -1662,13 +1682,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    const scanMode = window.bodyAvatarViewMode !== 'sprite';
-    if (scanMode) {
-      const canvas = document.getElementById('body-shape-avatar');
-      if (canvas) drawBodyShapeFrame(window.bodyAvatarState, canvas);
-    } else {
-      updateSpriteView(window.bodyAvatarState);
-    }
+    updateSpriteView(window.bodyAvatarState);
   }
 
   // Cancel preview and restore actual user stats
