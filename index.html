@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Styling -->
-  <link rel="stylesheet" href="style.css?v=20260622_2210">
+  <link rel="stylesheet" href="style.css?v=20260623_0946">
 </head>
 <body>
 
@@ -57,6 +57,20 @@
       
       <div class="header-right">
         <div id="live-clock" class="live-clock">2026/06/22 20:20:00</div>
+        
+        <div class="date-switcher">
+          <button id="btn-prev-day" class="date-nav-btn" title="前一天">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
+          </button>
+          <input type="date" id="active-date-picker" class="date-picker-input">
+          <button id="btn-next-day" class="date-nav-btn" title="後一天">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+          </button>
+        </div>
         
         <nav class="tab-navigation">
           <button id="btn-tab-dashboard" class="tab-btn active" data-tab="dashboard">
@@ -201,9 +215,78 @@
             
           </div>
           
-          <!-- RIGHT COLUMN: Projection Summary & Encouragement -->
           <div class="right-column">
             
+            <!-- Today's Cumulative Estimated Body State Card -->
+            <div class="card glass-panel cumulative-body-card" style="border-color: rgba(139, 92, 246, 0.2);">
+              <div class="card-header">
+                <h2>今日估算體態</h2>
+                <span class="card-subtitle">基於歷史累積熱量平衡與蛋白質/重訓數據</span>
+              </div>
+              <div class="card-body">
+                <div class="projection-subtext">截至目前日期的推估結果：</div>
+                
+                <div class="proj-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+                  <div class="proj-stat">
+                    <span class="lbl">估計體重 (Weight)</span>
+                    <span id="est-weight-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- kg</span>
+                  </div>
+                  <div class="proj-stat">
+                    <span class="lbl">估計肌肉量 (Muscle)</span>
+                    <span id="est-muscle-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- kg</span>
+                  </div>
+                  <div class="proj-stat">
+                    <span class="lbl">估計體脂率 (Body Fat)</span>
+                    <span id="est-fat-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- %</span>
+                  </div>
+                </div>
+
+                <div class="cumulative-apply-section" style="display: flex; flex-direction: column; gap: 8px;">
+                  <p id="est-summary-text" style="font-size: 11px; color: var(--text-secondary); line-height: 1.5; margin: 0;">
+                    正在載入歷史累積數據...
+                  </p>
+                  
+                  <div class="weight-log-row" style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                    <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">登記當日實測體態數據：</div>
+                    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 9px; color: var(--text-muted);">體重 (kg)</span>
+                        <input type="number" id="input-daily-weight" step="0.1" placeholder="體重" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 9px; color: var(--text-muted);">肌肉 (kg)</span>
+                        <input type="number" id="input-daily-muscle" step="0.1" placeholder="肌肉" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                      </div>
+                      <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <span style="font-size: 9px; color: var(--text-muted);">體脂 (%)</span>
+                        <input type="number" id="input-daily-fat" step="0.1" placeholder="體脂" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                      </div>
+                    </div>
+                    <button id="btn-save-daily-weight" class="primary-btn green-btn" style="width: 100%; justify-content: center; padding: 6px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: var(--transition-fast);">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path>
+                        <polyline points="17 21 17 13 7 13 7 21"></polyline>
+                        <polyline points="7 3 7 8 15 8"></polyline>
+                      </svg>
+                      <span>儲存實測數據</span>
+                    </button>
+                  </div>
+
+                  <!-- Comparative Coach Analysis Box -->
+                  <div id="daily-comparison-box" style="display: none; margin-top: 4px; padding: 12px; background: rgba(139, 92, 246, 0.05); border: 1px dashed rgba(139, 92, 246, 0.20); border-radius: 8px; font-size: 11px; line-height: 1.6; color: var(--text-primary); transition: var(--transition-normal);">
+                    <!-- Comparison comments dynamically injected here -->
+                  </div>
+
+                  <button id="btn-apply-est-body" class="primary-btn green-btn border-glow-btn" style="width: 100%; justify-content: center; padding: 10px; font-size: 12px; border-radius: 8px; margin-top: 4px; display: none; background: linear-gradient(135deg, var(--accent-green), #059669); border: none; cursor: pointer; color: white; font-weight: 700; align-items: center; gap: 4px; box-shadow: 0 4px 12px var(--accent-green-glow); transition: var(--transition-fast);">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                      <polyline points="20 6 9 17 4 12"></polyline>
+                    </svg>
+                    <span>將此估算套用至基本設定</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- Projections Card -->
             <div class="card glass-panel projection-card">
               <div class="card-header">
@@ -296,6 +379,23 @@
 
           </div>
 
+        </div>
+
+        <!-- History Trend Chart Card -->
+        <div class="card glass-panel history-chart-card" style="margin-top: 24px;">
+          <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
+            <div>
+              <h2>歷史趨勢分析</h2>
+              <span class="card-subtitle">過去的卡路里平衡與預估體重走勢</span>
+            </div>
+            <div class="chart-controls" style="display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 4px; border-radius: 10px; gap: 4px;">
+              <button id="btn-chart-range-7" class="chart-filter-btn active" onclick="changeChartRange(7)">7天趨勢</button>
+              <button id="btn-chart-range-30" class="chart-filter-btn" onclick="changeChartRange(30)">30天趨勢</button>
+            </div>
+          </div>
+          <div class="card-body" style="position: relative; height: 340px; width: 100%;">
+            <canvas id="history-trend-chart"></canvas>
+          </div>
         </div>
       </section>
 
@@ -936,7 +1036,9 @@
 
   <div id="toast-container"></div>
 
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20260622_2225"></script>
+  <script src="app.js?v=20260623_0946"></script>
 </body>
 </html>
