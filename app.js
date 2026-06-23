@@ -130,6 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // AI Workout Estimator Panel
     aiWorkoutPromptInput: document.getElementById('ai-workout-prompt-input'),
     btnAiWorkoutEstimate: document.getElementById('btn-ai-workout-estimate'),
+    btnCopyWorkoutPrompt: document.getElementById('btn-copy-workout-prompt'),
     btnClearWorkoutAi: document.getElementById('btn-clear-workout-ai'),
     aiWorkoutResultPanel: document.getElementById('ai-workout-result-panel'),
     aiWorkoutStatusIndicator: document.getElementById('ai-workout-status-indicator'),
@@ -140,6 +141,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Diet Panel
     aiPromptInput: document.getElementById('ai-prompt-input'),
     btnAiEstimate: document.getElementById('btn-ai-estimate'),
+    btnCopyDietPrompt: document.getElementById('btn-copy-diet-prompt'),
     btnClearAi: document.getElementById('btn-clear-ai'),
     aiResultPanel: document.getElementById('ai-result-panel'),
     aiStatusIndicator: document.getElementById('ai-status-indicator'),
@@ -2331,11 +2333,69 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // --- AI Estimator Engine (Gemini API Integration via GAS Proxy) ---
+  if (el.btnCopyDietPrompt) {
+    el.btnCopyDietPrompt.addEventListener('click', () => {
+      const text = el.aiPromptInput.value.trim();
+      if (!text) {
+        showToast('請先輸入您吃了些什麼！', 'warning');
+        return;
+      }
+      
+      const systemInstruction = `你是一位專業的繁體中文營養師與飲食分析助手。
+請分析使用者輸入的飲食內容（繁體中文），識別裡面包含的每一項食物，並估算其熱量（大卡）、蛋白質（克）、碳水化合物（克）與脂肪（克）。
+你必須只回傳一個 Raw JSON Array，裡面是包含每項食物的 Object。
+請勿包含任何 Markdown 標記，例如 \`\`\`json 等，直接回傳純 JSON 文字。
+
+JSON Array Object 結構格式如下，且欄位名稱必須完全一致：
+[
+  {"name": "雞胸肉", "calories": 165, "protein": 31, "carbs": 0, "fat": 3.6},
+  {"name": "糙米飯", "calories": 111, "protein": 2.6, "carbs": 23, "fat": 0.9}
+]
+
+注意：若無法辨識食物，請使用合理猜測的估算，確保熱量與營養數值合理完整。
+
+分析飲食描述：${text}`;
+
+      navigator.clipboard.writeText(systemInstruction)
+        .then(() => {
+          showToast('飲食分析 Prompt 已複製到剪貼簿！可直接貼給 Gemini 詢問。', 'success');
+        })
+        .catch(err => {
+          console.error('Failed to copy text: ', err);
+          const textarea = document.createElement('textarea');
+          textarea.value = systemInstruction;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            showToast('飲食分析 Prompt 已複製！', 'success');
+          } catch (copyErr) {
+            showToast('複製失敗，請手動複製。', 'error');
+          }
+          document.body.removeChild(textarea);
+        });
+    });
+  }
+
   el.btnAiEstimate.addEventListener('click', async () => {
     const promptText = el.aiPromptInput.value.trim();
     if (!promptText) {
       showToast('請先輸入您吃了些什麼！', 'info');
       return;
+    }
+    
+    // Check if user pasted a raw JSON response directly from Gemini
+    if (promptText.startsWith('[') && promptText.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(promptText);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          showToast('成功偵測並解析手動貼入的 Gemini JSON 數據！', 'success');
+          displayAiResults(parsed);
+          return;
+        }
+      } catch (e) {
+        // Fall back to API if parsing fails
+      }
     }
     
     el.btnAiEstimate.disabled = true;
@@ -2491,11 +2551,75 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // --- AI Workout Estimator Engine (Gemini API Integration via GAS Proxy) ---
+  if (el.btnCopyWorkoutPrompt) {
+    el.btnCopyWorkoutPrompt.addEventListener('click', () => {
+      const text = el.aiWorkoutPromptInput.value.trim();
+      if (!text) {
+        showToast('請先輸入您做了什麼運動！', 'warning');
+        return;
+      }
+      
+      const p = state.profile;
+      const weight = parseFloat(p.weight) || 70;
+
+      const systemInstruction = `你是一位專業的中文運動與健身教練。
+請分析使用者輸入的運動內容（繁體中文），估算每項運動的時間、強度與消耗的熱量。
+使用者的體重是 ${weight} kg，計算消耗熱量公式請參考 MET 標準：消耗熱量 = MET * 體重(kg) * (時間(分鐘) / 60)。
+常見運動 MET 參考值：慢跑/跑步(中強度9.8/高強度11.5)，重量訓練(中強度5.0/高強度6.0)，散步/走路(3.5)，單車/自行車(中強度6.0)，游泳(8.0)，HIIT(8.5)，瑜珈(3.0)。
+對於其他自訂項目（如打籃球、打羽球、爬山等），請使用合理的運動生理學 MET 值計算。
+你必須只回傳一個 Raw JSON Array，裡面是包含每項運動的 Object。
+請勿包含任何 Markdown 標記，例如 \`\`\`json 等，直接回傳純 JSON 文字。
+
+JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、'medium' 或 'high' 其中之一，type 欄位可為 running, weight, walking, cycling, swimming, hiit, yoga 或 custom：
+[
+  {"name": "打籃球", "duration": 60, "intensity": "medium", "calories": 380, "type": "custom"},
+  {"name": "慢跑", "duration": 30, "intensity": "high", "calories": 400, "type": "running"}
+]
+
+注意：若無法辨識運動，請使用合理猜測的估算，確保熱量與時間數值合理完整。
+
+分析運動描述：${text}`;
+
+      navigator.clipboard.writeText(systemInstruction)
+        .then(() => {
+          showToast('運動分析 Prompt 已複製到剪貼簿！可直接貼給 Gemini 詢問。', 'success');
+        })
+        .catch(err => {
+          console.error('Failed to copy text: ', err);
+          const textarea = document.createElement('textarea');
+          textarea.value = systemInstruction;
+          document.body.appendChild(textarea);
+          textarea.select();
+          try {
+            document.execCommand('copy');
+            showToast('運動分析 Prompt 已複製！', 'success');
+          } catch (copyErr) {
+            showToast('複製失敗，請手動複製。', 'error');
+          }
+          document.body.removeChild(textarea);
+        });
+    });
+  }
+
   el.btnAiWorkoutEstimate.addEventListener('click', async () => {
     const promptText = el.aiWorkoutPromptInput.value.trim();
     if (!promptText) {
       showToast('請先輸入您做了什麼運動！', 'info');
       return;
+    }
+    
+    // Check if user pasted a raw JSON response directly from Gemini
+    if (promptText.startsWith('[') && promptText.endsWith(']')) {
+      try {
+        const parsed = JSON.parse(promptText);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          showToast('成功偵測並解析手動貼入的 Gemini JSON 數據！', 'success');
+          displayAiWorkoutResults(parsed);
+          return;
+        }
+      } catch (e) {
+        // Fall back to API if parsing fails
+      }
     }
     
     el.btnAiWorkoutEstimate.disabled = true;
