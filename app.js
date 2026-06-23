@@ -560,6 +560,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let cumFatMass = initialWeight * (initialFatPct / 100);
     let totalLogsCount = 0;
     
+    let lastPlotWeight = null;
+    let lastPlotMuscle = null;
+    let lastPlotFat = null;
+    
     pastDates.forEach(date => {
       const entry = state.dailyLogs[date];
       if (!entry) return;
@@ -602,6 +606,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cumMuscle = parseFloat(dayMuscle);
       }
       
+      let plotWeight = hasWeight ? parseFloat(dayWeight) : null;
+      let plotMuscle = hasMuscle ? parseFloat(dayMuscle) : null;
+      let plotFat = hasFat ? parseFloat(dayFatPercent) : null;
+      
       if (hasWorkouts || hasDiet) {
         const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayWorkoutOut = entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
@@ -636,18 +644,29 @@ document.addEventListener('DOMContentLoaded', () => {
         cumMuscle += dayMuscleChange;
         cumFatMass += dayFatChange;
       }
+      
+      if (plotWeight === null) plotWeight = cumWeight;
+      if (plotMuscle === null) plotMuscle = cumMuscle;
+      if (plotFat === null) plotFat = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
+      
+      lastPlotWeight = plotWeight;
+      lastPlotMuscle = plotMuscle;
+      lastPlotFat = plotFat;
     });
     
+    let finalWeight = lastPlotWeight !== null ? lastPlotWeight : cumWeight;
+    let finalMuscle = lastPlotMuscle !== null ? lastPlotMuscle : cumMuscle;
+    let finalFatPercent = lastPlotFat !== null ? lastPlotFat : (cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct);
+    
     // Clamp to logical limits
-    cumWeight = Math.max(30, cumWeight);
-    cumMuscle = Math.max(10, cumMuscle);
-    cumFatMass = Math.max(1, cumFatMass);
-    const cumFatPct = Math.max(1, Math.min(99, (cumFatMass / cumWeight) * 100));
+    finalWeight = Math.max(30, finalWeight);
+    finalMuscle = Math.max(10, finalMuscle);
+    finalFatPercent = Math.max(1, Math.min(99, finalFatPercent));
     
     return {
-      weight: cumWeight,
-      muscle: cumMuscle,
-      fatPercent: cumFatPct,
+      weight: finalWeight,
+      muscle: finalMuscle,
+      fatPercent: finalFatPercent,
       totalLogsCount
     };
   }
@@ -759,6 +778,10 @@ document.addEventListener('DOMContentLoaded', () => {
         cumMuscle = parseFloat(dayMuscle);
       }
       
+      let plotWeight = hasWeight ? parseFloat(dayWeight) : null;
+      let plotMuscle = hasMuscle ? parseFloat(dayMuscle) : null;
+      let plotFat = hasFat ? parseFloat(dayFatPercent) : null;
+
       if (hasWorkouts || hasDiet) {
         const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayWorkoutOut = entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
@@ -793,9 +816,13 @@ document.addEventListener('DOMContentLoaded', () => {
         cumFatMass += dayFatChange;
       }
       
-      weightHistory[date] = cumWeight;
-      muscleHistory[date] = cumMuscle;
-      fatPercentHistory[date] = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
+      if (plotWeight === null) plotWeight = cumWeight;
+      if (plotMuscle === null) plotMuscle = cumMuscle;
+      if (plotFat === null) plotFat = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
+
+      weightHistory[date] = plotWeight;
+      muscleHistory[date] = plotMuscle;
+      fatPercentHistory[date] = plotFat;
     });
     
     return {
