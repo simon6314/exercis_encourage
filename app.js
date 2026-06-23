@@ -15,6 +15,21 @@ document.addEventListener('DOMContentLoaded', () => {
     custom: { low: 3.0, medium: 5.0, high: 7.0 }
   };
 
+  function isWeightTraining(w) {
+    if (!w) return false;
+    if (w.type === 'weight') return true;
+    const name = (w.name || '').toLowerCase();
+    const keywords = [
+      '重訊', '重量', '阻力', '阻抗', '伏地挺身', '深蹲', '引體向上', '仰臥起坐',
+      '俯臥撐', '啞鈴', '壺鈴', '槓鈴', '推舉', '硬舉', '拉背', '臥推', '平板撐',
+      '撐體', '波比跳', '核心', '力量訓練', '阻力訓練', '胸推', '划船',
+      'squat', 'pushup', 'push-up', 'pullup', 'pull-up', 'dumbbell', 'barbell',
+      'kettlebell', 'lunge', 'deadlift', 'press', 'strength', 'resistance',
+      'plank', 'bench press', 'bodyweight', 'push up', 'pull up'
+    ];
+    return keywords.some(kw => name.includes(kw));
+  }
+
   const MOTIVATION_QUOTES = [
     { text: "持續運動的秘訣，就是踏出第一步！你的汗水絕對不會背叛你。", author: "健身大師" },
     { text: "不要因為覺得進步慢而氣餒，即使是再慢的步伐，也比躺在沙發上的你前進了許多。", author: "FitSpark" },
@@ -155,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btnEditProfileTab: document.getElementById('btn-edit-profile-tab'),
     currentDailyDeficit: document.getElementById('current-daily-deficit'),
     proteinTargetStatus: document.getElementById('protein-target-status'),
+    dynamicProjectionStatus: document.getElementById('dynamic-projection-status'),
     
     // Settings Modal Inputs
     settingsModal: document.getElementById('settings-modal'),
@@ -493,7 +509,7 @@ document.addEventListener('DOMContentLoaded', () => {
     for (let i = 1; i < pastDates.length; i++) {
       const prevDate = pastDates[i - 1];
       const currDate = pastDates[i];
-      const entry = state.dailyLogs[currDate];
+      const entry = state.dailyLogs[prevDate];
       if (!entry) continue;
 
       const prevMuscle = muscleHist[prevDate];
@@ -522,7 +538,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
 
       const weightTrainingMins = entry.workouts ? entry.workouts
-        .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+        .filter(isWeightTraining)
         .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
       const hasWorkouts = entry.workouts && entry.workouts.length > 0;
 
@@ -605,7 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Weight training check (>= 30 minutes of strength training)
     const weightTrainingMins = log.workouts
-      .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訓') || w.name.toLowerCase().includes('重量'))
+      .filter(isWeightTraining)
       .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
     const hasWeightTraining = weightTrainingMins >= 30;
     
@@ -686,6 +702,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     el.proteinTargetStatus.textContent = `${totalProtein.toFixed(1)}g / ${targetProtein}g (${hasEnoughProtein ? '已達標' : '未達標'})`;
     el.proteinTargetStatus.style.color = hasEnoughProtein ? 'var(--accent-green)' : 'var(--accent-yellow)';
+    
+    // Update Dynamic Projection Status UI card based on today's status
+    updateDynamicProjectionStatusUI(netDeficit, hasEnoughProtein, hasWeightTraining, weightTrainingMins, totalProtein, targetProtein);
   }
 
   function formatProjText(element, changeValue, metricType, futureValue, unit, currentValue) {
@@ -731,6 +750,121 @@ document.addEventListener('DOMContentLoaded', () => {
     } else {
       element.innerHTML = `${futureStr}${spacing}${unit} <span class="proj-delta" style="font-size: 11px; font-weight: 500; opacity: 0.85;">(${changeStr}${spacing}${unit})</span>${arrow}`;
     }
+  }
+
+  function updateDynamicProjectionStatusUI(netDeficit, hasEnoughProtein, hasWeightTraining, weightTrainingMins, totalProtein, targetProtein) {
+    if (!el.dynamicProjectionStatus) return;
+
+    const p = state.profile;
+    const gender = p.gender || 'male';
+    const fatPercent = parseFloat(p.fatPercent) || 20;
+    const height = parseFloat(p.height) || 175;
+    const weight = parseFloat(p.weight) || 70;
+    const bmi = weight / ((height / 100) ** 2);
+    
+    // Determine user's body type: 偏重 (overweight/high body fat) or 偏瘦 (underweight/skinny)
+    // Overweight: body fat >= 20% (male) or >= 28% (female), or BMI >= 24
+    const isOverweight = (gender === 'male' && fatPercent >= 20) || (gender === 'female' && fatPercent >= 28) || bmi >= 24;
+    
+    let statusClass = '';
+    let emoji = '';
+    let title = '';
+    let description = '';
+    let pathTitle = '';
+    let pathDesc = '';
+    let warningHtml = '';
+
+    // Classification
+    if (hasEnoughProtein) {
+      if (hasWeightTraining) {
+        if (netDeficit > 0) {
+          // Recomposition
+          statusClass = 'status-recomp';
+          emoji = '🔥';
+          title = '增肌減脂型 (Body Recomposition)';
+          description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且進行了重量訓練（<b>${weightTrainingMins} 分鐘</b>，已達標 30 分鐘），並且創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字！這在科學上是達成「增肌與減脂同時進行」的黃金組合。`;
+          if (isOverweight) {
+            pathTitle = '⚖️ 偏重/高體脂體態路徑';
+            pathDesc = `您的身體會優先動用體脂肪作為熱量來源，同時利用充足的蛋白質與重訊刺激修復肌肉。預期將會看到<b>體重穩健下降，身形明顯變小、變結實，線條漸趨緊緻</b>。`;
+          } else {
+            pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
+            pathDesc = `由於您皮下脂肪較少，此赤字會促使身體精準利用微幅熱量差，配合重訊將微量脂肪轉為肌肉能量。預期<b>體重微幅下降，肌肉圍度維持甚至增加，線條感與腹肌會更加明顯</b>。`;
+          }
+        } else {
+          // Clean Bulk
+          statusClass = 'status-clean-bulk';
+          emoji = '💪';
+          title = '乾淨增肌型 (Clean Bulk)';
+          description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且進行了重量訓練（<b>${weightTrainingMins} 分鐘</b>，已達標 30 分鐘），熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>）。這是構建純肌肉組織最理想的生理環境。`;
+          if (isOverweight) {
+            pathTitle = '⚖️ 偏重/高體脂體態路徑';
+            pathDesc = `由於熱量盈餘且體脂偏高，此狀態會使您的肌肉與脂肪同時緩步上升，身形會顯得更為<b>厚實與強壯</b>。但建議若以減脂為首要目標，可微調飲食將熱量降至赤字區間，以利脂肪燃燒。`;
+          } else {
+            pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
+            pathDesc = `這是最適合您的路徑！熱量盈餘提供充足能量，配合蛋白質與重訊，能最大化合成肌肉。您將會看到<b>體重逐步增加、骨架與肌肉圍度顯著提升，告別乾癟身形，迎來精壯體格</b>。`;
+          }
+        }
+      } else {
+        // Maintenance
+        statusClass = 'status-maintenance';
+        emoji = '🧘';
+        title = '體態維持型 (Body Maintenance)';
+        description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），但重量訓練不足（<b>${weightTrainingMins} 分鐘</b>，未達標 30 分鐘）。雖然缺乏足夠的機械張力刺激肌肉生長，但充足的蛋白質與飲食管理能有效維持現有的瘦肉組織，避免流失。`;
+        if (isOverweight) {
+          pathTitle = '⚖️ 偏重/高體脂體態路徑';
+          pathDesc = `沒有重量訓練的破壞與重建，身體不會啟動肌肉生長機制。在熱量平衡或微幅波動下，您的<b>體重與身形不會有明顯變化</b>，體脂也難以顯著下降。建議加入每週至少 3 次阻力訓練。`;
+        } else {
+          pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
+          pathDesc = `充足蛋白質能保障現有肌肉，但缺乏阻力訓練刺激，肌肉無法增長。您將維持<b>偏瘦且肉質偏軟的狀態，身形線條與飽滿度不會有明顯改變</b>。`;
+        }
+      }
+    } else {
+      if (netDeficit > 0) {
+        // Muscle Loss
+        statusClass = 'status-muscle-loss';
+        emoji = '⚠️';
+        title = '肌肉流失型 (Muscle Loss / Skinny Fat)';
+        description = `您今日創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字，但蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>，未達目標的 80% 即 ${Math.round(targetProtein * 0.8)}g）。在熱量不足且缺乏原料（蛋白質）的情況下，身體會被迫分解肌肉組織來供能，形成所謂的「節食流失肌肉」。`;
+        warningHtml = `<div class="warning-li" style="color: #ef4444; font-size: 11px; margin-top: 8px; font-weight: bold;">※ 警告：流失體重的 <b>35%</b> 均為寶貴的肌肉！</div>`;
+        if (isOverweight) {
+          pathTitle = '⚖️ 偏重/高體脂體態路徑';
+          pathDesc = `雖然體重會下降，但流失的多為珍貴的肌肉與水分，體脂率反而可能持平或上升。這會使您<b>肉質更加鬆軟、代謝率下降，比例上看起來依然臃腫，更容易遇到減重平台期</b>。`;
+        } else {
+          pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
+          pathDesc = `這將導致嚴重的「泡芙人 (Skinny Fat)」危機。您的**體重會持續下降、鎖骨突出，但身形顯得乾癟、無精神且毫無線條感**，稍微多吃就極易囤積脂肪在腹部。`;
+        }
+      } else {
+        // Fat Gain
+        statusClass = 'status-fat-gain';
+        emoji = '📈';
+        title = '脂肪囤積型 (Fat Accumulation)';
+        description = `您今日熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>），且蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>），同時也缺乏重訊。在沒有運動刺激、沒有充足蛋白質、卻有熱量多餘的情況下，多餘的熱量將全部以脂肪形式儲存。`;
+        if (isOverweight) {
+          pathTitle = '⚖️ 偏重/高體脂體態路徑';
+          pathDesc = `這是需要特別警惕的狀態。多餘的熱量會快速轉化為脂肪，堆積在腹部、臀部與大腿等脂肪易囤積部位，導致**體重快速上升，身形明顯橫向發展，體脂率攀升**。`;
+        } else {
+          pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
+          pathDesc = `熱量盈餘但缺乏肌肉刺激，多餘熱量只會變成脂肪。您會發現**體重增加，但肉全部長在肚子上，形成「四肢細瘦、肚子大」的青蛙體態**，體脂率迅速上升。`;
+        }
+      }
+    }
+
+    el.dynamicProjectionStatus.innerHTML = `
+      <div class="active-scenario-box ${statusClass}">
+        <div class="active-scenario-header">
+          <div class="active-scenario-indicator-dot"></div>
+          <span class="active-scenario-title">${emoji} ${title}</span>
+        </div>
+        <div class="active-scenario-desc">
+          ${description}
+          ${warningHtml}
+        </div>
+        <div class="active-path-card">
+          <div class="path-badge">${pathTitle}</div>
+          <div class="path-text">${pathDesc}</div>
+        </div>
+      </div>
+    `;
   }
 
   // --- Calculate Cumulative Body State based on history ---
@@ -854,7 +988,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasEnoughProtein = dayProtein >= (targetProtein * 0.8);
         
         const weightTrainingMins = entry.workouts
-          .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+          .filter(isWeightTraining)
           .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
         const hasWeightTraining = weightTrainingMins >= 30;
         
@@ -1032,7 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasEnoughProtein = dayProtein >= (targetProtein * 0.8);
         
         const weightTrainingMins = entry.workouts
-          .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+          .filter(isWeightTraining)
           .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
         const hasWeightTraining = weightTrainingMins >= 30;
         
@@ -1140,7 +1274,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayProtein = todayLog.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
     const hasEnoughProtein = todayProtein >= (targetProtein * 0.8);
     const weightTrainingMins = todayLog.workouts
-      .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+      .filter(isWeightTraining)
       .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
     const hasWeightTraining = weightTrainingMins >= 30;
     

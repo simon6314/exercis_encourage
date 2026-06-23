@@ -1144,6 +1144,51 @@ a:hover {
   line-height: 1.6;
 }
 
+
+.projection-scenarios {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 10px;
+}
+.scenario-item {
+  background: rgba(255, 255, 255, 0.015);
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 2.5px solid rgba(255, 255, 255, 0.1);
+}
+.scenario-item:nth-child(1) { border-left-color: var(--accent-green); }
+.scenario-item:nth-child(2) { border-left-color: var(--accent-purple); }
+.scenario-item:nth-child(3) { border-left-color: var(--accent-blue); }
+.scenario-item:nth-child(4) { border-left-color: #ef4444; }
+.scenario-item:nth-child(5) { border-left-color: var(--accent-orange); }
+
+.scenario-item h5 {
+  font-size: 12.5px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text-primary);
+}
+.scenario-item ul {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.scenario-item li {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.scenario-item li:last-child {
+  margin-bottom: 0;
+}
+.scenario-item li.warning-li {
+  color: #ef4444;
+  font-weight: bold;
+  font-size: 11px;
+  margin-top: 4px;
+}
 .daily-balance-tracker-row {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -1845,4 +1890,126 @@ a:hover {
 .insight-item:hover {
   border-color: rgba(255, 255, 255, 0.1) !important;
   background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* --- Dynamic Projection Status Box Styling --- */
+.active-scenario-box {
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.3s ease;
+}
+.active-scenario-box.status-recomp {
+  background: rgba(46, 213, 115, 0.03);
+  border-color: rgba(46, 213, 115, 0.2);
+}
+.active-scenario-box.status-clean-bulk {
+  background: rgba(165, 94, 234, 0.03);
+  border-color: rgba(165, 94, 234, 0.2);
+}
+.active-scenario-box.status-maintenance {
+  background: rgba(56, 103, 214, 0.03);
+  border-color: rgba(56, 103, 214, 0.2);
+}
+.active-scenario-box.status-muscle-loss {
+  background: rgba(235, 94, 85, 0.03);
+  border-color: rgba(235, 94, 85, 0.25);
+}
+.active-scenario-box.status-fat-gain {
+  background: rgba(255, 107, 0, 0.03);
+  border-color: rgba(255, 107, 0, 0.2);
+}
+
+.active-scenario-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.active-scenario-indicator-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-secondary);
+  animation: pulse-dot 2s infinite;
+}
+.status-recomp .active-scenario-indicator-dot { background: var(--accent-green); }
+.status-clean-bulk .active-scenario-indicator-dot { background: var(--accent-purple); }
+.status-maintenance .active-scenario-indicator-dot { background: var(--accent-blue); }
+.status-muscle-loss .active-scenario-indicator-dot { background: #ef4444; }
+.status-fat-gain .active-scenario-indicator-dot { background: var(--accent-orange); }
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.9); opacity: 0.6; }
+  50% { transform: scale(1.1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0.6; }
+}
+
+.active-scenario-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.active-scenario-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 14px;
+}
+.active-scenario-desc b {
+  color: var(--text-primary);
+}
+
+.active-path-card {
+  background: rgba(255, 255, 255, 0.015);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+}
+.path-badge {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 6px;
+}
+.path-text {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.path-text b {
+  color: var(--text-primary);
+}
+.standard-path-list {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+}
+.standard-path-list li {
+  font-size: 11.5px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 4px;
+}
+.standard-path-list li:last-child {
+  margin-bottom: 0;
+}
+
+/* Collapsible styles */
+.scenarios-details {
+  border: none;
+}
+.scenarios-summary {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-secondary);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+  transition: color 0.2s ease;
+}
+.scenarios-summary:hover {
+  color: var(--text-primary);
 }

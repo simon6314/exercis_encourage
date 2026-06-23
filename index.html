@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Styling -->
-  <link rel="stylesheet" href="style.css?v=20260623_1214">
+  <link rel="stylesheet" href="style.css?v=20260623_1409">
 </head>
 <body>
 
@@ -914,13 +914,56 @@
                   </div>
                   
                   <div class="metric-projection-card">
-                    <h4>肌肉量 (瘦體重) 與體脂變化模型</h4>
-                    <p>
-                      肌肉量的增長需要**充足的蛋白質**（今日蛋白質達到目標的 80% 以上）與**重量訓練**（重訓時長大於等於 30 分鐘）。<br>
-                      - <b>足量蛋白 + 重量訓練</b>：系統模擬完整增肌（7天可增肌 0.15 kg，30天可增肌 0.6 kg），並依每週休息天數加權計算。<br>
-                      - <b>僅足量蛋白但無重訓</b>：增肌效率降至 <b>0.25 倍</b>。<br>
-                      - <b>蛋白質攝取不足且處於熱量赤字 (節食)</b>：系統將模擬肌肉流失（肌肉流失量佔總體重減輕量的 <b>35%</b>），這完美展示了「光靠節食會掉肌肉，唯有補充足夠蛋白質 + 重量訓練才能實現增肌減脂」的科學事實！
-                    </p>
+                    <h4>今日行為對應的體態預測狀態</h4>
+                    <div id="dynamic-projection-status">
+                      <div class="empty-state" style="padding: 10px 0;">
+                        <p style="font-size: 12px; color: var(--text-secondary);">正在根據今日的飲食與運動行為推估體態路徑...</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="metric-projection-card">
+                    <details class="scenarios-details">
+                      <summary class="scenarios-summary">📖 查看所有 5 大體態發展規律對照表</summary>
+                      <div class="projection-scenarios" style="margin-top: 15px;">
+                        <div class="scenario-item">
+                          <h5>🔥 增肌減脂（高蛋白 + 阻力訓練 ≥ 30分 + 熱量赤字）</h5>
+                          <ul>
+                            <li><b>⚖️ 若您偏重（體脂高）</b>：偏重鬆軟 ➔ 體重下降、身形變小變結實。</li>
+                            <li><b>🏃‍♂️ 若您偏瘦（紙片人）</b>：偏瘦但有小肚子 ➔ 體重微降、腹脂減少、線條變明顯。</li>
+                          </ul>
+                        </div>
+                        <div class="scenario-item">
+                          <h5>💪 乾淨增肌（高蛋白 + 阻力訓練 ≥ 30分 + 熱量平衡/盈餘）</h5>
+                          <ul>
+                            <li><b>⚖️ 若您偏重（體脂高）</b>：偏重厚實 ➔ 體重微升、視覺更強壯，但體脂率不易降。</li>
+                            <li><b>🏃‍♂️ 若您偏瘦（紙片人）</b>：偏瘦乾癟 ➔ 體重增加、肌肉顯著提升、告別乾瘦。</li>
+                          </ul>
+                        </div>
+                        <div class="scenario-item">
+                          <h5>🧘 體態維持（高蛋白 + 無重訊 / 熱量平衡）</h5>
+                          <ul>
+                            <li><b>⚖️ 若您偏重（體脂高）</b>：維持偏重狀態、體重與身形無明顯變化。</li>
+                            <li><b>🏃‍♂️ 若您偏瘦（紙片人）</b>：維持偏瘦且偏軟的狀態、肌肉線條無變化。</li>
+                          </ul>
+                        </div>
+                        <div class="scenario-item">
+                          <h5>⚠️ 泡芙人危機（蛋白質不足 + 熱量赤字節食）</h5>
+                          <ul>
+                            <li><b>⚖️ 若您偏重（體脂高）</b>：體重雖降，但肉質更鬆軟，比例上看起來依然臃腫。</li>
+                            <li><b>🏃‍♂️ 若您偏瘦（紙片人）</b>：體重再掉、鎖骨突出、身形顯得乾癟且無精神。</li>
+                            <li class="warning-li">※ 警告：流失體重的 <b>35%</b> 均為寶貴的肌肉！</li>
+                          </ul>
+                        </div>
+                        <div class="scenario-item">
+                          <h5>📈 脂肪囤積（蛋白質不足 + 熱量盈餘）</h5>
+                          <ul>
+                            <li><b>⚖️ 若您偏重（體脂高）</b>：體重快速增加、脂肪堆積於腹部臀腿、身形橫向發展。</li>
+                            <li><b>🏃‍♂️ 若您偏瘦（紙片人）</b>：體重增加，但肉全張在肚子上，形成「四肢瘦肚子大」。</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </details>
                   </div>
 
                   <div class="daily-balance-tracker-row">
@@ -1134,6 +1177,6 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20260623_1214"></script>
+  <script src="app.js?v=20260623_1409"></script>
 </body>
 </html>
