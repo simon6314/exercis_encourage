@@ -1810,3 +1810,39 @@ a:hover {
 .chart-scroll-container::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.15);
 }
+
+/* --- AI Coach Loading Sparkle Animation --- */
+@keyframes coach-pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; border-color: rgba(139, 92, 246, 0.5) !important; box-shadow: 0 0 8px rgba(139, 92, 246, 0.2); }
+  100% { opacity: 0.6; }
+}
+.coach-loading {
+  animation: coach-pulse 1.5s infinite ease-in-out;
+}
+
+/* --- Plateau Warning Badge --- */
+@keyframes plateau-glow {
+  0% { border-color: rgba(245, 158, 11, 0.2); }
+  50% { border-color: rgba(245, 158, 11, 0.6) !important; box-shadow: 0 0 10px rgba(245, 158, 11, 0.15); }
+  100% { border-color: rgba(245, 158, 11, 0.2); }
+}
+.plateau-warning {
+  animation: plateau-glow 2s infinite ease-in-out;
+}
+
+/* --- Cross-Correlation Insights Styling --- */
+.correlation-insights-card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+.correlation-insights-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+}
+.insight-item {
+  transition: border-color 0.3s ease, background 0.3s ease;
+}
+.insight-item:hover {
+  border-color: rgba(255, 255, 255, 0.1) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}

@@ -205,7 +205,23 @@ document.addEventListener('DOMContentLoaded', () => {
     inputDailyMuscle: document.getElementById('input-daily-muscle'),
     inputDailyFat: document.getElementById('input-daily-fat'),
     btnSaveDailyWeight: document.getElementById('btn-save-daily-weight'),
-    dailyComparisonBox: document.getElementById('daily-comparison-box')
+    dailyComparisonBox: document.getElementById('daily-comparison-box'),
+    tdeeCalibratedBadge: document.getElementById('tdee-calibrated-badge'),
+    adaptiveTdeeInfo: document.getElementById('adaptive-tdee-info'),
+    adaptiveTdeeOffsetVal: document.getElementById('adaptive-tdee-offset-val'),
+    aiCoachDeepBox: document.getElementById('ai-coach-deep-box'),
+    btnTriggerAiCoach: document.getElementById('btn-trigger-ai-coach'),
+    aiCoachDeepResult: document.getElementById('ai-coach-deep-result'),
+    insightProteinData: document.getElementById('insight-protein-data'),
+    insightProteinHighVal: document.getElementById('insight-protein-high-val'),
+    insightProteinHighBar: document.getElementById('insight-protein-high-bar'),
+    insightProteinLowVal: document.getElementById('insight-protein-low-val'),
+    insightProteinLowBar: document.getElementById('insight-protein-low-bar'),
+    insightWorkoutData: document.getElementById('insight-workout-data'),
+    insightWorkoutYesVal: document.getElementById('insight-workout-yes-val'),
+    insightWorkoutYesBar: document.getElementById('insight-workout-yes-bar'),
+    insightWorkoutNoVal: document.getElementById('insight-workout-no-val'),
+    insightWorkoutNoBar: document.getElementById('insight-workout-no-bar')
   };
 
   // Temporary container for AI estimated food items
@@ -316,10 +332,227 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  // --- Adaptive TDEE Calibrator ---
+  function calculateAdaptiveTdeeOffset() {
+    const allDatesSorted = Object.keys(state.dailyLogs).sort();
+    
+    // We need days that have both logged weight AND diet logs (to estimate calorie intake)
+    const validWeightDates = allDatesSorted.filter(d => {
+      const entry = state.dailyLogs[d];
+      return entry && 
+             entry.weight !== undefined && 
+             entry.weight !== null && 
+             entry.weight > 0 && 
+             entry.diet && 
+             entry.diet.length > 0;
+    });
+
+    // We need at least 7 days of actual logged weight/diet to perform adaptive calibration
+    if (validWeightDates.length < 7) {
+      return 0;
+    }
+
+    const firstDate = validWeightDates[0];
+    const lastDate = validWeightDates[validWeightDates.length - 1];
+
+    const firstWeight = parseFloat(state.dailyLogs[firstDate].weight);
+    const lastWeight = parseFloat(state.dailyLogs[lastDate].weight);
+    const actualWeightChange = lastWeight - firstWeight;
+
+    // Calculate total expected balance and TDEE based on formula for dates in range
+    const dStart = new Date(firstDate + 'T00:00:00');
+    const dEnd = new Date(lastDate + 'T00:00:00');
+    const diffDays = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
+
+    if (diffDays < 7) {
+      return 0;
+    }
+
+    let totalIn = 0;
+    let totalWorkoutOut = 0;
+    let baseTdeeSum = 0;
+
+    const bmr = calculateBmr();
+    const activityFactor = parseFloat(state.profile.activity) || 1.2;
+    const baseTdee = Math.round(bmr * activityFactor);
+    let loggedDaysCount = 0;
+
+    for (let i = 0; i < diffDays; i++) {
+      const d = new Date(dStart);
+      d.setDate(dStart.getDate() + i);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      
+      const entry = state.dailyLogs[dateStr];
+      if (entry) {
+        const dayIn = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        
+        totalIn += dayIn;
+        totalWorkoutOut += dayWorkoutOut;
+        baseTdeeSum += baseTdee;
+        loggedDaysCount++;
+      } else {
+        totalIn += baseTdee;
+        baseTdeeSum += baseTdee;
+      }
+    }
+
+    const calorieDifference = totalIn - baseTdeeSum - totalWorkoutOut;
+    const expectedWeightChangeCal = actualWeightChange * 7700;
+    
+    let offset = (calorieDifference - expectedWeightChangeCal) / (loggedDaysCount || 1);
+
+    if (isNaN(offset)) return 0;
+    offset = Math.max(-500, Math.min(500, offset));
+    return Math.round(offset);
+  }
+
   function calculateTdee() {
     const bmr = calculateBmr();
     const factor = parseFloat(state.profile.activity) || 1.2;
-    return Math.round(bmr * factor);
+    const baseTdee = Math.round(bmr * factor);
+    const offset = calculateAdaptiveTdeeOffset();
+    return baseTdee + offset;
+  }
+
+  // --- Plateau Detector ---
+  function detectWeightPlateau() {
+    const allDatesSorted = Object.keys(state.dailyLogs).sort();
+    
+    // Look at last 14 days of history up to currentActiveDate
+    const dStart = new Date(currentActiveDate + 'T00:00:00');
+    dStart.setDate(dStart.getDate() - 13); // 14-day window
+
+    const recentWeightLogs = [];
+    let totalCalBalance = 0;
+    let loggedDeficitDays = 0;
+    
+    const bmr = calculateBmr();
+    const activityFactor = parseFloat(state.profile.activity) || 1.2;
+    const baseTdee = Math.round(bmr * activityFactor) + calculateAdaptiveTdeeOffset();
+
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(dStart);
+      d.setDate(dStart.getDate() + i);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      
+      const entry = state.dailyLogs[dateStr];
+      if (entry) {
+        if (entry.weight !== undefined && entry.weight !== null && entry.weight > 0) {
+          recentWeightLogs.push(parseFloat(entry.weight));
+        }
+        const dayIn = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const balance = dayIn - (baseTdee + dayWorkoutOut);
+        
+        if (balance < -100) {
+          totalCalBalance += balance;
+          loggedDeficitDays++;
+        }
+      }
+    }
+
+    if (recentWeightLogs.length < 5) {
+      return false;
+    }
+
+    const mean = recentWeightLogs.reduce((sum, val) => sum + val, 0) / recentWeightLogs.length;
+    const sqDiffSum = recentWeightLogs.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0);
+    const stdDev = Math.sqrt(sqDiffSum / recentWeightLogs.length);
+
+    const isWeightFlat = stdDev < 0.15;
+    const hasDeficit = loggedDeficitDays >= 3 && (totalCalBalance / loggedDeficitDays) < -200;
+
+    return isWeightFlat && hasDeficit;
+  }
+
+  // --- Cross-Correlation Insights Generator ---
+  function calculateCrossCorrelations() {
+    const allDatesSorted = Object.keys(state.dailyLogs).sort();
+    const pastDates = allDatesSorted.filter(d => d <= currentActiveDate);
+    
+    const p = state.profile;
+    const targetProtein = parseFloat(p.targetProtein) || 120;
+
+    const history = getBodyStateHistoryUpTo(currentActiveDate);
+    const muscleHist = history.muscleHistory;
+    const fatPctHist = history.fatPercentHistory;
+
+    let proteinHighDays = 0;
+    let proteinHighMuscleChangeSum = 0;
+    let proteinLowDays = 0;
+    let proteinLowMuscleChangeSum = 0;
+
+    let workoutYesDays = 0;
+    let workoutYesFatPctChangeSum = 0;
+    let workoutNoDays = 0;
+    let workoutNoFatPctChangeSum = 0;
+
+    for (let i = 1; i < pastDates.length; i++) {
+      const prevDate = pastDates[i - 1];
+      const currDate = pastDates[i];
+      const entry = state.dailyLogs[currDate];
+      if (!entry) continue;
+
+      const prevMuscle = muscleHist[prevDate];
+      const currMuscle = muscleHist[currDate];
+      const prevFatPct = fatPctHist[prevDate];
+      const currFatPct = fatPctHist[currDate];
+
+      if (prevMuscle === undefined || currMuscle === undefined || prevFatPct === undefined || currFatPct === undefined) {
+        continue;
+      }
+
+      const dailyMuscleChange = currMuscle - prevMuscle;
+      const dailyFatPctChange = currFatPct - prevFatPct;
+
+      const dayProtein = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0) : 0;
+      const hasDiet = entry.diet && entry.diet.length > 0;
+      
+      if (hasDiet) {
+        if (dayProtein >= targetProtein * 0.8) {
+          proteinHighDays++;
+          proteinHighMuscleChangeSum += dailyMuscleChange;
+        } else {
+          proteinLowDays++;
+          proteinLowMuscleChangeSum += dailyMuscleChange;
+        }
+      }
+
+      const weightTrainingMins = entry.workouts ? entry.workouts
+        .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+        .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+      const hasWorkouts = entry.workouts && entry.workouts.length > 0;
+
+      if (hasWorkouts || hasDiet) {
+        if (weightTrainingMins >= 30) {
+          workoutYesDays++;
+          workoutYesFatPctChangeSum += dailyFatPctChange;
+        } else {
+          workoutNoDays++;
+          workoutNoFatPctChangeSum += dailyFatPctChange;
+        }
+      }
+    }
+
+    const avgMuscleChangeProteinHigh = proteinHighDays > 0 ? (proteinHighMuscleChangeSum / proteinHighDays) : 0;
+    const avgMuscleChangeProteinLow = proteinLowDays > 0 ? (proteinLowMuscleChangeSum / proteinLowDays) : 0;
+
+    const avgFatPctChangeWorkoutYes = workoutYesDays > 0 ? (workoutYesFatPctChangeSum / workoutYesDays) : 0;
+    const avgFatPctChangeWorkoutNo = workoutNoDays > 0 ? (workoutNoFatPctChangeSum / workoutNoDays) : 0;
+
+    return {
+      proteinHighDays,
+      proteinLowDays,
+      avgMuscleChangeProteinHigh,
+      avgMuscleChangeProteinLow,
+      workoutYesDays,
+      workoutNoDays,
+      avgFatPctChangeWorkoutYes,
+      avgFatPctChangeWorkoutNo
+    };
   }
 
   // --- Exercise Calories Calculator ---
@@ -1299,6 +1532,14 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (hasAnyActual) {
         el.dailyComparisonBox.style.display = 'block';
+        if (el.aiCoachDeepBox) el.aiCoachDeepBox.style.display = 'block';
+        
+        // Reset AI coaching advice text if we switched to a different active date
+        if (window.lastAiCoachFeedbackDate !== currentActiveDate) {
+          if (el.aiCoachDeepResult) {
+            el.aiCoachDeepResult.innerHTML = '點擊上方「即刻點評」按鈕，讓 AI 教練針對您今日的重訊、營養平衡與體態進行精準診斷...';
+          }
+        }
         
         // Calculate scientific predictions for today (ignoring today's actual inputs)
         const pred = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
@@ -1348,6 +1589,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Generate Coach Comments
         let comments = [];
+
+        // Check for Weight Plateau
+        const isPlateau = detectWeightPlateau();
+        if (isPlateau) {
+          el.dailyComparisonBox.classList.add('plateau-warning');
+          comments.push(`⚠️ <strong>代謝平台期警示</strong>：偵測到您的體重在近 14 天內幾乎沒有變動（標準差極小），且您一直維持在卡路里赤字中。這代表新陳代謝發生了代償性適應。建議您適度安排 3-5 天的<b>「飲食回饋期 (Diet Break)」</b>，將卡路里暫時吃回 TDEE 正常值，以活化代謝率與瘦素（Leptin）分泌後，再重新啟動赤字。`);
+        } else {
+          el.dailyComparisonBox.classList.remove('plateau-warning');
+        }
+
         if (hasActWeight) {
           const dW = actWeight - pred.weight;
           if (dW < -0.5) {
@@ -1430,6 +1681,7 @@ document.addEventListener('DOMContentLoaded', () => {
         `;
       } else {
         el.dailyComparisonBox.style.display = 'none';
+        if (el.aiCoachDeepBox) el.aiCoachDeepBox.style.display = 'none';
       }
     }
   }
@@ -1448,6 +1700,17 @@ document.addEventListener('DOMContentLoaded', () => {
     el.tdeeDisplay.textContent = `${tdee} kcal`;
     el.profileTdeeDisplay.textContent = `${tdee} kcal`;
     el.profileBmrDisplay.textContent = `${Math.round(calculateBmr())} kcal`;
+    
+    // Dynamic TDEE Calibration UI feedback
+    const tdeeOffset = calculateAdaptiveTdeeOffset();
+    if (tdeeOffset !== 0) {
+      if (el.tdeeCalibratedBadge) el.tdeeCalibratedBadge.style.display = 'inline-block';
+      if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
+      if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = (tdeeOffset >= 0 ? '+' : '') + tdeeOffset;
+    } else {
+      if (el.tdeeCalibratedBadge) el.tdeeCalibratedBadge.style.display = 'none';
+      if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'none';
+    }
     
     // 3. Calorie Ring Totals
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
@@ -1597,6 +1860,80 @@ document.addEventListener('DOMContentLoaded', () => {
     // 10. Update Estimated Body State Card & Historical Trend Chart
     updateCumulativeBodyStateUI();
     renderHistoryChart();
+    
+    // 11. Update Cross-Correlation Insights
+    updateCrossCorrelationsUI();
+  }
+
+  function updateCrossCorrelationsUI() {
+    const stats = calculateCrossCorrelations();
+    
+    // 1. Render Protein Insight
+    if (el.insightProteinData) {
+      if (stats.proteinHighDays === 0 && stats.proteinLowDays === 0) {
+        el.insightProteinData.innerHTML = `⚠️ 尚無足夠飲食記錄可進行關聯性分析。`;
+        if (el.insightProteinHighVal) el.insightProteinHighVal.textContent = '--';
+        if (el.insightProteinLowVal) el.insightProteinLowVal.textContent = '--';
+        if (el.insightProteinHighBar) el.insightProteinHighBar.style.width = '0%';
+        if (el.insightProteinLowBar) el.insightProteinLowBar.style.width = '0%';
+      } else {
+        const signHigh = stats.avgMuscleChangeProteinHigh >= 0 ? '+' : '';
+        const signLow = stats.avgMuscleChangeProteinLow >= 0 ? '+' : '';
+        
+        if (el.insightProteinHighVal) el.insightProteinHighVal.textContent = `${signHigh}${stats.avgMuscleChangeProteinHigh.toFixed(3)} kg`;
+        if (el.insightProteinLowVal) el.insightProteinLowVal.textContent = `${signLow}${stats.avgMuscleChangeProteinLow.toFixed(3)} kg`;
+        
+        const maxVal = 0.05;
+        const widthHigh = Math.min(100, Math.max(5, (Math.abs(stats.avgMuscleChangeProteinHigh) / maxVal) * 100));
+        const widthLow = Math.min(100, Math.max(5, (Math.abs(stats.avgMuscleChangeProteinLow) / maxVal) * 100));
+        
+        if (el.insightProteinHighBar) el.insightProteinHighBar.style.width = `${widthHigh}%`;
+        if (el.insightProteinLowBar) el.insightProteinLowBar.style.width = `${widthLow}%`;
+        
+        let proteinMsg = '';
+        if (stats.avgMuscleChangeProteinHigh > stats.avgMuscleChangeProteinLow) {
+          const diff = stats.avgMuscleChangeProteinHigh - stats.avgMuscleChangeProteinLow;
+          proteinMsg = `💡 分析指出：當您的<b>蛋白質攝取達標時</b>，平均每日肌肉量變化比未達標時<b>多出 ${diff.toFixed(3)} kg</b>。這證明充足的蛋白質對於肌肉合成/保留有顯著成效！`;
+        } else if (stats.proteinHighDays > 0 && stats.proteinLowDays > 0) {
+          proteinMsg = `💡 分析指出：蛋白質達標與否對您的肌肉量沒有明顯的淨差。建議確保重訊強度，以更好地刺激肌肉合成。`;
+        } else {
+          proteinMsg = `💡 數據累積中。目前記錄了 ${stats.proteinHighDays} 天達標與 ${stats.proteinLowDays} 天未達標。`;
+        }
+        el.insightProteinData.innerHTML = proteinMsg;
+      }
+    }
+
+    // 2. Render Workout Insight
+    if (el.insightWorkoutData) {
+      if (stats.workoutYesDays === 0 && stats.workoutNoDays === 0) {
+        el.insightWorkoutData.innerHTML = `⚠️ 尚無足夠運動記錄可進行關聯性分析。`;
+        if (el.insightWorkoutYesVal) el.insightWorkoutYesVal.textContent = '--';
+        if (el.insightWorkoutNoVal) el.insightWorkoutNoVal.textContent = '--';
+        if (el.insightWorkoutYesBar) el.insightWorkoutYesBar.style.width = '0%';
+        if (el.insightWorkoutNoBar) el.insightWorkoutNoBar.style.width = '0%';
+      } else {
+        if (el.insightWorkoutYesVal) el.insightWorkoutYesVal.textContent = `${stats.avgFatPctChangeWorkoutYes.toFixed(2)}%`;
+        if (el.insightWorkoutNoVal) el.insightWorkoutNoVal.textContent = `${stats.avgFatPctChangeWorkoutNo.toFixed(2)}%`;
+        
+        const maxVal = 0.5;
+        const widthYes = Math.min(100, Math.max(5, (Math.abs(stats.avgFatPctChangeWorkoutYes) / maxVal) * 100));
+        const widthNo = Math.min(100, Math.max(5, (Math.abs(stats.avgFatPctChangeWorkoutNo) / maxVal) * 100));
+        
+        if (el.insightWorkoutYesBar) el.insightWorkoutYesBar.style.width = `${widthYes}%`;
+        if (el.insightWorkoutNoBar) el.insightWorkoutNoBar.style.width = `${widthNo}%`;
+        
+        let workoutMsg = '';
+        if (stats.avgFatPctChangeWorkoutYes < stats.avgFatPctChangeWorkoutNo) {
+          const diff = Math.abs(stats.avgFatPctChangeWorkoutYes - stats.avgFatPctChangeWorkoutNo);
+          workoutMsg = `💡 分析指出：當您進行了 <b>30 分鐘以上阻力訓練時</b>，體脂率平均每日下降速率比沒有重訊時<b>快了 ${diff.toFixed(2)}%</b>。阻力訓練顯著提升了您的脂肪燃燒率！`;
+        } else if (stats.workoutYesDays > 0 && stats.workoutNoDays > 0) {
+          workoutMsg = `💡 分析指出：阻力訓練日與非訓練日的體脂率變化接近。建議配合卡路里赤字，以發揮最大的阻力訓練減脂優勢。`;
+        } else {
+          workoutMsg = `💡 數據累積中。目前記錄了 ${stats.workoutYesDays} 天阻力訓練與 ${stats.workoutNoDays} 天非阻力訓練。`;
+        }
+        el.insightWorkoutData.innerHTML = workoutMsg;
+      }
+    }
   }
 
   function updateFavoriteWorkoutsUI() {
@@ -2758,6 +3095,84 @@ document.addEventListener('DOMContentLoaded', () => {
           showToast(`已儲存 ${currentActiveDate} 的數據：${savedMsgs.join('、')}${syncSuffix}`, 'success');
         } else {
           showToast(`已清除 ${currentActiveDate} 的實測紀錄：${clearedMsgs.join('、')}`, 'info');
+        }
+      });
+    }
+
+    // AI Coach Deep Review Click Event
+    if (el.btnTriggerAiCoach) {
+      el.btnTriggerAiCoach.addEventListener('click', async () => {
+        const sheetsUrl = state.profile.sheetsUrl;
+        if (!sheetsUrl) {
+          showToast('請先在設定中部署您的 Google Sheets URL！', 'error');
+          return;
+        }
+
+        el.btnTriggerAiCoach.disabled = true;
+        const originalText = el.btnTriggerAiCoach.textContent;
+        el.btnTriggerAiCoach.textContent = '評估中...';
+        el.aiCoachDeepBox.classList.add('coach-loading');
+        el.aiCoachDeepResult.innerHTML = '<div class="spinner-small" style="display:inline-block; width:10px; height:10px; border:2px solid var(--accent-purple-light); border-top:2px solid transparent; border-radius:50%; animation: spin 1s infinite linear; margin-right:6px;"></div>正在收集今日運動與營養平衡資料，請稍候...';
+
+        try {
+          const log = getActiveLog();
+          const p = state.profile;
+          const tdee = calculateTdee();
+          
+          const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+          const totalCarbs = log.diet.reduce((sum, item) => sum + (parseFloat(item.carbs) || 0), 0);
+          const totalFat = log.diet.reduce((sum, item) => sum + (parseFloat(item.fat) || 0), 0);
+          const totalOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          const netCalories = totalIn - (tdee + totalOut);
+
+          const pred = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
+          
+          const contextPayload = `
+日期：${currentActiveDate}
+【實際攝取與消耗】
+- 總攝取熱量：${Math.round(totalIn)} kcal (目標: ${p.targetCalories} kcal)
+- 蛋白質：${totalProtein.toFixed(1)}g (目標: ${p.targetProtein}g)
+- 碳水化合物：${totalCarbs.toFixed(1)}g (目標: ${p.targetCarbs}g)
+- 脂肪：${totalFat.toFixed(1)}g (目標: ${p.targetFat}g)
+- 運動消耗量：${Math.round(totalOut)} kcal
+- TDEE (基本消耗)：${tdee} kcal
+- 今日卡路里淨平衡：${Math.round(netCalories)} kcal
+
+【科學預估值】
+- 預估體重：${pred.weight.toFixed(2)} kg
+- 預估肌肉量：${pred.muscle.toFixed(2)} kg
+- 預估體脂率：${pred.fatPercent.toFixed(1)}%
+
+【登記實測值】
+- 實測體重：${log.weight ? log.weight + ' kg' : '未登記'}
+- 實測肌肉量：${log.muscle ? log.muscle + ' kg' : '未登記'}
+- 實測體脂率：${log.fatPercent ? log.fatPercent + '%' : '未登記'}
+
+【代謝狀態】
+- 是否進入平台期：${detectWeightPlateau() ? '是 (14天體重無變動且維持赤字)' : '否'}
+`;
+
+          const response = await postRequest(sheetsUrl, {
+            action: 'generateCoachingFeedback',
+            context: contextPayload
+          });
+
+          if (response.result === 'success') {
+            el.aiCoachDeepResult.innerHTML = `🧠 <b>AI 教練：</b><br>${response.text}`;
+            window.lastAiCoachFeedbackDate = currentActiveDate;
+            showToast('AI 私教診斷已完成！', 'success');
+          } else {
+            throw new Error(response.message || 'AI 診斷回傳失敗');
+          }
+        } catch (err) {
+          console.error('AI Coach coaching error:', err);
+          el.aiCoachDeepResult.textContent = '❌ 診斷失敗，請確認 API 金鑰已設定於雲端，且網路連線正常。';
+          showToast('無法取得 AI 教練診斷報告。', 'error');
+        } finally {
+          el.btnTriggerAiCoach.disabled = false;
+          el.btnTriggerAiCoach.textContent = originalText;
+          el.aiCoachDeepBox.classList.remove('coach-loading');
         }
       });
     }
