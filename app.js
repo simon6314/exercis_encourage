@@ -2650,7 +2650,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Draw/update body shape avatar scanner with the latest parameters
-    if (el.bodyShapeAvatar) {
+    if (el.bodyShapeSprite) {
       const p = state.profile;
       drawBodyShapeAvatar(p.gender, est.weight, p.height, est.muscle, est.fatPercent);
       
