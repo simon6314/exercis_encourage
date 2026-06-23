@@ -283,9 +283,14 @@
                       <span style="font-weight: 700; color: var(--accent-purple-light); display: flex; align-items: center; gap: 4px;">
                         ✨ Gemini AI 深度私教診斷
                       </span>
-                      <button id="btn-trigger-ai-coach" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange)); border: none; border-radius: 4px; color: white; padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);">
-                        即刻點評
-                      </button>
+                      <div style="display: flex; gap: 6px;">
+                        <button id="btn-copy-coach-prompt" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; color: var(--text-secondary); padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; transition: all 0.2s;">
+                          📋 複製 Prompt
+                        </button>
+                        <button id="btn-trigger-ai-coach" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange)); border: none; border-radius: 4px; color: white; padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);">
+                          即刻點評
+                        </button>
+                      </div>
                     </div>
                     <div id="ai-coach-deep-result" style="color: var(--text-secondary); line-height: 1.5; font-style: italic; min-height: 20px;">
                       點擊上方「即刻點評」按鈕，讓 AI 教練針對您今日的重訊、營養平衡與體態進行精準診斷...

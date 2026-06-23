@@ -227,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
     adaptiveTdeeOffsetVal: document.getElementById('adaptive-tdee-offset-val'),
     aiCoachDeepBox: document.getElementById('ai-coach-deep-box'),
     btnTriggerAiCoach: document.getElementById('btn-trigger-ai-coach'),
+    btnCopyCoachPrompt: document.getElementById('btn-copy-coach-prompt'),
     aiCoachDeepResult: document.getElementById('ai-coach-deep-result'),
     insightProteinData: document.getElementById('insight-protein-data'),
     insightProteinHighVal: document.getElementById('insight-protein-high-val'),
@@ -3233,36 +3234,21 @@ document.addEventListener('DOMContentLoaded', () => {
       });
     }
 
-    // AI Coach Deep Review Click Event
-    if (el.btnTriggerAiCoach) {
-      el.btnTriggerAiCoach.addEventListener('click', async () => {
-        const sheetsUrl = state.profile.sheetsUrl;
-        if (!sheetsUrl) {
-          showToast('請先在設定中部署您的 Google Sheets URL！', 'error');
-          return;
-        }
+    function getCoachPrompt() {
+      const log = getActiveLog();
+      const p = state.profile;
+      const tdee = calculateTdee();
+      
+      const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+      const totalCarbs = log.diet.reduce((sum, item) => sum + (parseFloat(item.carbs) || 0), 0);
+      const totalFat = log.diet.reduce((sum, item) => sum + (parseFloat(item.fat) || 0), 0);
+      const totalOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      const netCalories = totalIn - (tdee + totalOut);
 
-        el.btnTriggerAiCoach.disabled = true;
-        const originalText = el.btnTriggerAiCoach.textContent;
-        el.btnTriggerAiCoach.textContent = '評估中...';
-        el.aiCoachDeepBox.classList.add('coach-loading');
-        el.aiCoachDeepResult.innerHTML = '<div class="spinner-small" style="display:inline-block; width:10px; height:10px; border:2px solid var(--accent-purple-light); border-top:2px solid transparent; border-radius:50%; animation: spin 1s infinite linear; margin-right:6px;"></div>正在收集今日運動與營養平衡資料，請稍候...';
-
-        try {
-          const log = getActiveLog();
-          const p = state.profile;
-          const tdee = calculateTdee();
-          
-          const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
-          const totalCarbs = log.diet.reduce((sum, item) => sum + (parseFloat(item.carbs) || 0), 0);
-          const totalFat = log.diet.reduce((sum, item) => sum + (parseFloat(item.fat) || 0), 0);
-          const totalOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          const netCalories = totalIn - (tdee + totalOut);
-
-          const pred = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
-          
-          const contextPayload = `
+      const pred = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
+      
+      const contextPayload = `
 日期：${currentActiveDate}
 【實際攝取與消耗】
 - 總攝取熱量：${Math.round(totalIn)} kcal (目標: ${p.targetCalories} kcal)
@@ -3286,6 +3272,61 @@ document.addEventListener('DOMContentLoaded', () => {
 【代謝狀態】
 - 是否進入平台期：${detectWeightPlateau() ? '是 (14天體重無變動且維持赤字)' : '否'}
 `;
+
+      const systemInstruction = `你是一位專業的繁體中文運動健身與營養教練。
+請針對我提供的「今日實測體態數據、科學估算值、今日卡路里餘額、蛋白質與阻力訓練狀態」進行深度而有建設性的復盤點評。
+請用專業、鼓勵且親切的口吻，指出我做得好的地方與需要改進之處，並給出具體可行的建議（例如調整熱量、多攝取蛋白質或補充水份等）。
+回覆字數請控制在 150-250 字之內，以繁體中文回答，不需要使用 JSON 包裝。
+
+以下是今天的體態與運動飲食數據資訊：
+${contextPayload}`;
+
+      return { contextPayload, systemInstruction };
+    }
+
+    // Copy AI Coach Prompt Click Event
+    if (el.btnCopyCoachPrompt) {
+      el.btnCopyCoachPrompt.addEventListener('click', () => {
+        const { systemInstruction } = getCoachPrompt();
+        navigator.clipboard.writeText(systemInstruction)
+          .then(() => {
+            showToast('Prompt 已複製到剪貼簿！可直接貼給 Gemini 詢問。', 'success');
+          })
+          .catch(err => {
+            console.error('Failed to copy text: ', err);
+            // Fallback for copy command
+            const textarea = document.createElement('textarea');
+            textarea.value = systemInstruction;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+              document.execCommand('copy');
+              showToast('Prompt 已複製到剪貼簿！', 'success');
+            } catch (copyErr) {
+              showToast('複製失敗，請手動選取文字複製。', 'error');
+            }
+            document.body.removeChild(textarea);
+          });
+      });
+    }
+
+    // AI Coach Deep Review Click Event
+    if (el.btnTriggerAiCoach) {
+      el.btnTriggerAiCoach.addEventListener('click', async () => {
+        const sheetsUrl = state.profile.sheetsUrl;
+        if (!sheetsUrl) {
+          showToast('請先在設定中部署您的 Google Sheets URL！', 'error');
+          return;
+        }
+
+        el.btnTriggerAiCoach.disabled = true;
+        const originalText = el.btnTriggerAiCoach.textContent;
+        el.btnTriggerAiCoach.textContent = '評估中...';
+        el.aiCoachDeepBox.classList.add('coach-loading');
+        el.aiCoachDeepResult.innerHTML = '<div class="spinner-small" style="display:inline-block; width:10px; height:10px; border:2px solid var(--accent-purple-light); border-top:2px solid transparent; border-radius:50%; animation: spin 1s infinite linear; margin-right:6px;"></div>正在收集今日運動與營養平衡資料，請稍候...';
+
+        try {
+          const { contextPayload } = getCoachPrompt();
 
           const response = await postRequest(sheetsUrl, {
             action: 'generateCoachingFeedback',
