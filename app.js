@@ -904,6 +904,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ]
   };
 
+  // Custom positioning overrides for male_body_shapes_10_30_grid.png due to slight grid offsets in source image
+  const MALE_SPRITE_POSITIONS = [
+    { x: 0.8971, y: 1.3158 }, // Preset 0 (#1)
+    { x: 50.0598, y: 1.3158 }, // Preset 1 (#2)
+    { x: 100.1196, y: 1.3158 }, // Preset 2 (#3)
+    { x: 0.7177, y: 50.7177 }, // Preset 3 (#4)
+    { x: 50.2990, y: 50.7177 }, // Preset 4 (#5)
+    { x: 100.0000, y: 50.7177 }, // Preset 5 (#6)
+    { x: 0.6579, y: 100.1196 }, // Preset 6 (#7)
+    { x: 52.2129, y: 100.1196 }, // Preset 7 (#8)
+    { x: 101.4952, y: 100.1196 }  // Preset 8 (#9)
+  ];
+
   // Distance helper to find closest body preset to current stats
   function getClosestPresetIndex(gender, userMuscleRatio, userFatPercent) {
     const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
@@ -1503,10 +1516,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const presets = BODY_PRESETS.male;
       const preset = presets[closestIdx];
       
-      // 3x3 grid position
-      const row = Math.floor(closestIdx / 3);
-      const col = closestIdx % 3;
-      spriteDiv.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+      // Custom 3x3 grid position offsets for male sprite sheet
+      const customPos = MALE_SPRITE_POSITIONS[closestIdx];
+      spriteDiv.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
       
       // Micro-morphing
       const fatDiff = fatPercent - preset.fatPercent;
@@ -1579,7 +1591,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const isMale = gender === 'male';
         const imgUrl = isMale ? './male_body_shapes_10_30_grid.png' : './female_body_shapes.png';
         const bgSize = '300% 300%';
-        const bgPos = `${(idx % 3) * 50}% ${Math.floor(idx / 3) * 50}%`;
+        
+        let bgPos;
+        if (isMale) {
+          const customPos = MALE_SPRITE_POSITIONS[idx];
+          bgPos = `${customPos.x}% ${customPos.y}%`;
+        } else {
+          bgPos = `${(idx % 3) * 50}% ${Math.floor(idx / 3) * 50}%`;
+        }
         
         cell.innerHTML = `
           <span class="num-label">#${idx + 1} ${p.label}</span>
