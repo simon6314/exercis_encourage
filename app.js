@@ -2327,7 +2327,18 @@ document.addEventListener('DOMContentLoaded', () => {
               console.error('Failed to parse dietJson:', e);
             }
             
-            state.dailyLogs[dateStr] = { workouts, diet };
+            const logEntry = { workouts, diet };
+            
+            // Parse weight, muscle, bodyFat columns from sheet daily log rows
+            const wVal = parseFloat(row.weight);
+            const mVal = parseFloat(row.muscle);
+            const fVal = parseFloat(row.bodyFat); // column name in Apps Script is bodyFat
+            
+            if (!isNaN(wVal) && wVal > 0) logEntry.weight = wVal;
+            if (!isNaN(mVal) && mVal > 0) logEntry.muscle = mVal;
+            if (!isNaN(fVal) && fVal > 0) logEntry.fatPercent = fVal;
+            
+            state.dailyLogs[dateStr] = logEntry;
           });
         }
         
