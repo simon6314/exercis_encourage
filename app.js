@@ -709,6 +709,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let cumFatMass = initialWeight * (initialFatPct / 100);
     
     const weightHistory = {}; // key: dateStr, value: weight
+    const muscleHistory = {}; // key: dateStr, value: muscle
+    const fatPercentHistory = {}; // key: dateStr, value: fatPercent
     
     allDatesSorted.forEach(date => {
       if (date > maxDateStr) return;
@@ -734,6 +736,8 @@ document.addEventListener('DOMContentLoaded', () => {
       
       if (!hasWorkouts && !hasDiet && !hasWeight && !hasMuscle && !hasFat) {
         weightHistory[date] = cumWeight;
+        muscleHistory[date] = cumMuscle;
+        fatPercentHistory[date] = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
         return;
       }
       
@@ -790,17 +794,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       
       weightHistory[date] = cumWeight;
+      muscleHistory[date] = cumMuscle;
+      fatPercentHistory[date] = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
     });
     
-    return weightHistory;
+    return {
+      weightHistory,
+      muscleHistory,
+      fatPercentHistory
+    };
   }
 
-  // --- Map Date Range to Estimated Weight Trend ---
-  function getWeightTrendForDates(datesRange) {
+  // --- Map Date Range to Estimated Body State Trends ---
+  function getBodyStateTrendForDates(datesRange) {
     const p = state.profile;
     const initialWeight = parseFloat(p.weight) || 70;
+    const initialMuscle = parseFloat(p.muscle) || 30;
+    const initialFatPct = parseFloat(p.fatPercent) || 20;
     
-    const weightHistory = getBodyStateHistoryUpTo(currentActiveDate);
+    const history = getBodyStateHistoryUpTo(currentActiveDate);
+    const weightHistory = history.weightHistory;
+    const muscleHistory = history.muscleHistory;
+    const fatPercentHistory = history.fatPercentHistory;
+    
     const sortedLoggedDates = Object.keys(weightHistory).sort();
     
     let todayWeight = initialWeight;
@@ -817,6 +833,34 @@ document.addEventListener('DOMContentLoaded', () => {
       if (latestDate) todayWeight = weightHistory[latestDate];
     }
     
+    let todayMuscle = initialMuscle;
+    if (muscleHistory[currentActiveDate] !== undefined) {
+      todayMuscle = muscleHistory[currentActiveDate];
+    } else if (sortedLoggedDates.length > 0) {
+      let latestDate = null;
+      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+        if (sortedLoggedDates[i] <= currentActiveDate) {
+          latestDate = sortedLoggedDates[i];
+          break;
+        }
+      }
+      if (latestDate) todayMuscle = muscleHistory[latestDate];
+    }
+    
+    let todayFatPct = initialFatPct;
+    if (fatPercentHistory[currentActiveDate] !== undefined) {
+      todayFatPct = fatPercentHistory[currentActiveDate];
+    } else if (sortedLoggedDates.length > 0) {
+      let latestDate = null;
+      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+        if (sortedLoggedDates[i] <= currentActiveDate) {
+          latestDate = sortedLoggedDates[i];
+          break;
+        }
+      }
+      if (latestDate) todayFatPct = fatPercentHistory[latestDate];
+    }
+    
     const todayLog = state.dailyLogs[currentActiveDate] || { workouts: [], diet: [] };
     const todayIn = todayLog.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const todayWorkoutOut = todayLog.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
@@ -824,35 +868,98 @@ document.addEventListener('DOMContentLoaded', () => {
     const todayBalance = todayIn - (tdee + todayWorkoutOut);
     const dailyProjWeightChange = todayBalance / 7700;
     
-    return datesRange.map(date => {
+    const restDays = parseInt(p.restDays) || 0;
+    const trainingDays = Math.max(0, 7 - restDays);
+    const targetProtein = parseFloat(p.targetProtein) || 120;
+    const todayProtein = todayLog.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+    const hasEnoughProtein = todayProtein >= (targetProtein * 0.8);
+    const weightTrainingMins = todayLog.workouts
+      .filter(w => w.type === 'weight' || w.name.toLowerCase().includes('重訊') || w.name.toLowerCase().includes('重量'))
+      .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
+    const hasWeightTraining = weightTrainingMins >= 30;
+    
+    let dailyProjMuscleChange = 0;
+    if (todayBalance < 0 && !hasEnoughProtein) {
+      dailyProjMuscleChange = dailyProjWeightChange * 0.35;
+    } else if (hasEnoughProtein) {
+      if (hasWeightTraining) {
+        const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
+        dailyProjMuscleChange = (0.15 * avgMuscleGrowthCoeff) / 7;
+      } else {
+        dailyProjMuscleChange = (0.15 * 0.25) / 7;
+      }
+    }
+    
+    const dailyProjFatChange = dailyProjWeightChange - dailyProjMuscleChange;
+    
+    const weightTrend = [];
+    const muscleTrend = [];
+    const fatPercentTrend = [];
+    
+    datesRange.forEach(date => {
       if (date <= currentActiveDate) {
-        if (weightHistory[date] !== undefined) {
-          return parseFloat(weightHistory[date].toFixed(2));
-        }
+        let wVal = weightHistory[date];
+        let mVal = muscleHistory[date];
+        let fVal = fatPercentHistory[date];
         
-        let latestDate = null;
-        for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-          if (sortedLoggedDates[i] <= date) {
-            latestDate = sortedLoggedDates[i];
-            break;
+        if (wVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
           }
+          wVal = latestDate ? weightHistory[latestDate] : initialWeight;
+        }
+        if (mVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
+          }
+          mVal = latestDate ? muscleHistory[latestDate] : initialMuscle;
+        }
+        if (fVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
+          }
+          fVal = latestDate ? fatPercentHistory[latestDate] : initialFatPct;
         }
         
-        if (latestDate) {
-          return parseFloat(weightHistory[latestDate].toFixed(2));
-        } else {
-          return parseFloat(initialWeight.toFixed(2));
-        }
+        weightTrend.push(parseFloat(wVal.toFixed(2)));
+        muscleTrend.push(parseFloat(mVal.toFixed(2)));
+        fatPercentTrend.push(parseFloat(fVal.toFixed(1)));
       } else {
         const d1 = new Date(currentActiveDate + 'T00:00:00');
         const d2 = new Date(date + 'T00:00:00');
         const diffTime = Math.abs(d2 - d1);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         
-        const projected = todayWeight + (diffDays * dailyProjWeightChange);
-        return parseFloat(Math.max(30, projected).toFixed(2));
+        const projWeight = Math.max(30, todayWeight + (diffDays * dailyProjWeightChange));
+        const projMuscle = Math.max(10, todayMuscle + (diffDays * dailyProjMuscleChange));
+        
+        const baseFatMass = todayWeight * (todayFatPct / 100);
+        const projFatMass = Math.max(1, baseFatMass + (diffDays * dailyProjFatChange));
+        const projFatPct = Math.max(1, Math.min(99, (projFatMass / projWeight) * 100));
+        
+        weightTrend.push(parseFloat(projWeight.toFixed(2)));
+        muscleTrend.push(parseFloat(projMuscle.toFixed(2)));
+        fatPercentTrend.push(parseFloat(projFatPct.toFixed(1)));
       }
     });
+    
+    return {
+      weightTrend,
+      muscleTrend,
+      fatPercentTrend
+    };
   }
 
   // --- Generate Date List for Chart ---
@@ -888,30 +995,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const dates = getPastDatesRange(currentActiveDate, activeChartRange);
+    const trends = getBodyStateTrendForDates(dates);
     
-    const tdee = calculateTdee();
-    const calorieInLogs = [];
-    const calorieOutLogs = [];
-    
-    dates.forEach(date => {
-      if (date <= currentActiveDate) {
-        const entry = state.dailyLogs[date];
-        if (entry) {
-          const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          const dayWorkoutOut = entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          calorieInLogs.push(Math.round(dayIn));
-          calorieOutLogs.push(Math.round(tdee + dayWorkoutOut));
-        } else {
-          calorieInLogs.push(0);
-          calorieOutLogs.push(tdee);
-        }
-      } else {
-        calorieInLogs.push(null);
-        calorieOutLogs.push(null);
-      }
-    });
-    
-    const weightLogs = getWeightTrendForDates(dates);
     const labels = dates.map(d => {
       const parts = d.split('-');
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
@@ -923,54 +1008,58 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const ctx = canvas.getContext('2d');
     
-    const gradIn = ctx.createLinearGradient(0, 0, 0, 300);
-    gradIn.addColorStop(0, 'rgba(16, 185, 129, 0.4)');
-    gradIn.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
-    
-    const gradOut = ctx.createLinearGradient(0, 0, 0, 300);
-    gradOut.addColorStop(0, 'rgba(255, 107, 0, 0.4)');
-    gradOut.addColorStop(1, 'rgba(255, 107, 0, 0.02)');
-    
     historyChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels: labels,
         datasets: [
           {
-            label: '攝取熱量 (kcal)',
-            data: calorieInLogs,
-            backgroundColor: gradIn,
-            borderColor: '#10b981',
-            borderWidth: 2,
-            borderRadius: 6,
-            yAxisID: 'y-calories',
-            order: 2
-          },
-          {
-            label: '消耗熱量 (kcal)',
-            data: calorieOutLogs,
-            backgroundColor: gradOut,
-            borderColor: '#ff6b00',
-            borderWidth: 2,
-            borderRadius: 6,
-            yAxisID: 'y-calories',
-            order: 3
-          },
-          {
-            label: '估算體重 (kg)',
-            data: weightLogs,
-            type: 'line',
-            borderColor: '#8b5cf6',
-            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+            label: '體重 (kg)',
+            data: trends.weightTrend,
+            borderColor: '#8b5cf6', // purple
+            backgroundColor: 'rgba(139, 92, 246, 0.03)',
             borderWidth: 3,
             pointBackgroundColor: '#8b5cf6',
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.5,
             pointRadius: 4,
             pointHoverRadius: 6,
-            tension: 0.35,
-            yAxisID: 'y-weight',
-            order: 1,
+            tension: 0.3,
+            yAxisID: 'y-kg',
+            segment: {
+              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
+            }
+          },
+          {
+            label: '肌肉量 (kg)',
+            data: trends.muscleTrend,
+            borderColor: '#10b981', // green
+            backgroundColor: 'rgba(16, 185, 129, 0.03)',
+            borderWidth: 3,
+            pointBackgroundColor: '#10b981',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: 'y-kg',
+            segment: {
+              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
+            }
+          },
+          {
+            label: '體脂率 (%)',
+            data: trends.fatPercentTrend,
+            borderColor: '#ff6b00', // orange
+            backgroundColor: 'rgba(255, 107, 0, 0.03)',
+            borderWidth: 3,
+            pointBackgroundColor: '#ff6b00',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.5,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            yAxisID: 'y-percent',
             segment: {
               borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
             }
@@ -995,7 +1084,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           },
           tooltip: {
-            backgroundColor: 'rgba(15, 23, 42, 0.85)',
+            backgroundColor: 'rgba(15, 23, 42, 0.9)',
             titleColor: '#f8fafc',
             bodyColor: '#cbd5e1',
             borderColor: 'rgba(255, 255, 255, 0.1)',
@@ -1009,7 +1098,23 @@ document.addEventListener('DOMContentLoaded', () => {
             bodyFont: {
               family: 'Plus Jakarta Sans'
             },
-            displayColors: true
+            displayColors: true,
+            callbacks: {
+              label: function(context) {
+                let label = context.dataset.label || '';
+                if (label) {
+                  label += ': ';
+                }
+                if (context.parsed.y !== null) {
+                  if (context.dataset.yAxisID === 'y-kg') {
+                    label += context.parsed.y.toFixed(2) + ' kg';
+                  } else {
+                    label += context.parsed.y.toFixed(1) + ' %';
+                  }
+                }
+                return label;
+              }
+            }
           }
         },
         scales: {
@@ -1026,39 +1131,11 @@ document.addEventListener('DOMContentLoaded', () => {
               }
             }
           },
-          'y-calories': {
+          'y-kg': {
             type: 'linear',
             position: 'left',
             grid: {
               color: 'rgba(255, 255, 255, 0.04)',
-              borderColor: 'rgba(255, 255, 255, 0.08)'
-            },
-            ticks: {
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11
-              },
-              callback: function(value) {
-                return value + ' kcal';
-              }
-            },
-            title: {
-              display: true,
-              text: '熱量 (kcal)',
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11,
-                weight: '600'
-              }
-            }
-          },
-          'y-weight': {
-            type: 'linear',
-            position: 'right',
-            grid: {
-              drawOnChartArea: false,
               borderColor: 'rgba(255, 255, 255, 0.08)'
             },
             ticks: {
@@ -1073,19 +1150,41 @@ document.addEventListener('DOMContentLoaded', () => {
             },
             title: {
               display: true,
-              text: '體重 (kg)',
+              text: '體重 / 肌肉量 (kg)',
               color: '#94a3b8',
               font: {
                 family: 'Plus Jakarta Sans',
                 size: 11,
                 weight: '600'
               }
+            }
+          },
+          'y-percent': {
+            type: 'linear',
+            position: 'right',
+            grid: {
+              drawOnChartArea: false,
+              borderColor: 'rgba(255, 255, 255, 0.08)'
             },
-            suggestedMin: function(value) {
-              return Math.max(30, Math.floor(Math.min(...weightLogs) - 2));
+            ticks: {
+              color: '#94a3b8',
+              font: {
+                family: 'Plus Jakarta Sans',
+                size: 11
+              },
+              callback: function(value) {
+                return value + ' %';
+              }
             },
-            suggestedMax: function(value) {
-              return Math.ceil(Math.max(...weightLogs) + 2);
+            title: {
+              display: true,
+              text: '體脂率 (%)',
+              color: '#94a3b8',
+              font: {
+                family: 'Plus Jakarta Sans',
+                size: 11,
+                weight: '600'
+              }
             }
           }
         }
@@ -2569,10 +2668,15 @@ document.addEventListener('DOMContentLoaded', () => {
         
         let savedMsgs = [];
         let clearedMsgs = [];
+        const isToday = (currentActiveDate === getTodayDateString());
         
         if (!isNaN(weightVal) && weightVal > 0) {
           log.weight = weightVal;
           savedMsgs.push(`體重 ${weightVal} kg`);
+          if (isToday) {
+            state.profile.weight = weightVal;
+            if (el.inputWeight) el.inputWeight.value = weightVal;
+          }
         } else {
           delete log.weight;
           clearedMsgs.push('體重');
@@ -2581,6 +2685,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isNaN(muscleVal) && muscleVal > 0) {
           log.muscle = muscleVal;
           savedMsgs.push(`肌肉 ${muscleVal} kg`);
+          if (isToday) {
+            state.profile.muscle = muscleVal;
+            if (el.inputMuscle) el.inputMuscle.value = muscleVal;
+          }
         } else {
           delete log.muscle;
           clearedMsgs.push('肌肉');
@@ -2589,6 +2697,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!isNaN(fatVal) && fatVal > 0) {
           log.fatPercent = fatVal;
           savedMsgs.push(`體脂 ${fatVal}%`);
+          if (isToday) {
+            state.profile.fatPercent = fatVal;
+            if (el.inputFatPercent) el.inputFatPercent.value = fatVal;
+          }
         } else {
           delete log.fatPercent;
           clearedMsgs.push('體脂');
@@ -2598,7 +2710,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateUI();
         
         if (savedMsgs.length > 0) {
-          showToast(`已儲存 ${currentActiveDate} 的數據：${savedMsgs.join('、')}`, 'success');
+          const syncSuffix = isToday ? '（已同步更新至您的基本設定）' : '';
+          showToast(`已儲存 ${currentActiveDate} 的數據：${savedMsgs.join('、')}${syncSuffix}`, 'success');
         } else {
           showToast(`已清除 ${currentActiveDate} 的實測紀錄：${clearedMsgs.join('、')}`, 'info');
         }
