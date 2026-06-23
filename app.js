@@ -654,9 +654,15 @@ document.addEventListener('DOMContentLoaded', () => {
       lastPlotFat = plotFat;
     });
     
-    let finalWeight = lastPlotWeight !== null ? lastPlotWeight : cumWeight;
-    let finalMuscle = lastPlotMuscle !== null ? lastPlotMuscle : cumMuscle;
-    let finalFatPercent = lastPlotFat !== null ? lastPlotFat : (cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct);
+    const activeLog = state.dailyLogs[currentActiveDate] || {};
+    const ignoreActuals = options && options.ignoreActiveDateActuals;
+    const activeHasWeight = activeLog.weight !== undefined && activeLog.weight !== null && activeLog.weight > 0;
+    const activeHasMuscle = activeLog.muscle !== undefined && activeLog.muscle !== null && activeLog.muscle > 0;
+    const activeHasFat = activeLog.fatPercent !== undefined && activeLog.fatPercent !== null && activeLog.fatPercent > 0;
+
+    let finalWeight = (activeHasWeight && !ignoreActuals) ? parseFloat(activeLog.weight) : cumWeight;
+    let finalMuscle = (activeHasMuscle && !ignoreActuals) ? parseFloat(activeLog.muscle) : cumMuscle;
+    let finalFatPercent = (activeHasFat && !ignoreActuals) ? parseFloat(activeLog.fatPercent) : (cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct);
     
     // Clamp to logical limits
     finalWeight = Math.max(30, finalWeight);
