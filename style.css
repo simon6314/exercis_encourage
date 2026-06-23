@@ -1790,3 +1790,23 @@ a:hover {
   }
 }
 
+/* Horizontal scrollbar styling for the trend chart container on mobile */
+.chart-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+}
+.chart-scroll-container::-webkit-scrollbar {
+  height: 6px;
+}
+.chart-scroll-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.01);
+  border-radius: 3px;
+}
+.chart-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+}
+.chart-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

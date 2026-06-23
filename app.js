@@ -876,6 +876,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const canvas = document.getElementById('history-trend-chart');
     if (!canvas) return;
     
+    // Set parent wrapper min-width depending on date range to enable horizontal scroll on mobile
+    const wrapper = canvas.parentElement;
+    if (wrapper) {
+      wrapper.style.minWidth = activeChartRange === 7 ? '600px' : '1200px';
+    }
+    
     if (typeof Chart === 'undefined') {
       console.warn('Chart.js is not loaded yet. Skipping rendering.');
       return;
