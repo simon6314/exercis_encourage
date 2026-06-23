@@ -881,15 +881,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- BODY PRESETS DEFINITIONS FOR MALE & FEMALE 1-9 MATRIX ---
   const BODY_PRESETS = {
     male: [
-      { id: 1, name: "極度消瘦 (10%)", muscleRatio: 0.80, fatPercent: 10, label: "10% 體脂" },
-      { id: 2, name: "標準精實 (15%)", muscleRatio: 1.00, fatPercent: 15, label: "15% 體脂" },
-      { id: 3, name: "勻稱標準 (20%)", muscleRatio: 1.00, fatPercent: 20, label: "20% 體脂" },
-      { id: 4, name: "偏胖肉感 (25%)", muscleRatio: 0.95, fatPercent: 25, label: "25% 體脂" },
-      { id: 5, name: "輕度肥胖 (30%)", muscleRatio: 0.90, fatPercent: 30, label: "30% 體脂" },
-      { id: 6, name: "中度肥胖 (35%)", muscleRatio: 0.85, fatPercent: 35, label: "35% 體脂" },
-      { id: 7, name: "重度肥胖 (40%)", muscleRatio: 0.82, fatPercent: 40, label: "40% 體脂" },
-      { id: 8, name: "極度肥胖 (45%)", muscleRatio: 0.80, fatPercent: 45, label: "45% 體脂" },
-      { id: 9, name: "嚴重肥胖 (50%)", muscleRatio: 0.78, fatPercent: 50, label: "50% 體脂" }
+      { id: 1, name: "消瘦塑形 (10-12%)", muscleRatio: 0.82, fatPercent: 11, label: "10-12%" },
+      { id: 2, name: "精實線條 (12-15%)", muscleRatio: 0.98, fatPercent: 13.5, label: "12-15%" },
+      { id: 3, name: "微肌健美 (15-17%)", muscleRatio: 1.00, fatPercent: 16, label: "15-17%" },
+      { id: 4, name: "勻稱標準 (17-19%)", muscleRatio: 1.00, fatPercent: 18, label: "17-19%" },
+      { id: 5, name: "標準飽滿 (19-21%)", muscleRatio: 0.98, fatPercent: 20, label: "19-21%" },
+      { id: 6, name: "平坦無肌 (21-23%)", muscleRatio: 0.92, fatPercent: 22, label: "21-23%" },
+      { id: 7, name: "微寬體態 (23-25%)", muscleRatio: 0.90, fatPercent: 24, label: "23-25%" },
+      { id: 8, name: "偏肉身形 (25-27%)", muscleRatio: 0.88, fatPercent: 26, label: "25-27%" },
+      { id: 9, name: "厚重有肉 (27-30%)", muscleRatio: 0.86, fatPercent: 28.5, label: "27-30%" }
     ],
     female: [
       { id: 1, name: "極度消瘦 (纖細)", muscleRatio: 0.75, fatPercent: 15, label: "骨感" },
@@ -966,6 +966,38 @@ document.addEventListener('DOMContentLoaded', () => {
           resetBodyAvatarPreview();
         });
       }
+
+      // Lightbox modal toggle event listeners
+      const viewportEl = document.getElementById('avatar-viewport');
+      const lightboxEl = document.getElementById('body-shape-lightbox');
+      const closeLbBtn = document.getElementById('btn-close-lightbox');
+      const closeLbFooterBtn = document.getElementById('lightbox-btn-close');
+      
+      if (viewportEl && lightboxEl) {
+        viewportEl.addEventListener('click', () => {
+          // Open lightbox
+          lightboxEl.classList.add('active');
+          
+          // Populate subtitle
+          const lbSubtitle = document.getElementById('lightbox-subtitle');
+          if (lbSubtitle && window.bodyAvatarState) {
+            const stateText = window.bodyAvatarState.weight.toFixed(1) + ' kg / ' + window.bodyAvatarState.fatPercent.toFixed(1) + '% 體脂';
+            lbSubtitle.textContent = stateText;
+          }
+        });
+      }
+      
+      function closeLightbox() {
+        if (lightboxEl) lightboxEl.classList.remove('active');
+      }
+      
+      if (closeLbBtn) closeLbBtn.addEventListener('click', closeLightbox);
+      if (closeLbFooterBtn) closeLbFooterBtn.addEventListener('click', closeLightbox);
+      if (lightboxEl) {
+        lightboxEl.addEventListener('click', (e) => {
+          if (e.target === lightboxEl) closeLightbox();
+        });
+      }
     }
     
     if (!window.bodyAvatarAnimId) {
@@ -981,14 +1013,49 @@ document.addEventListener('DOMContentLoaded', () => {
             drawBodyShapeFrame(window.bodyAvatarState, canvas);
           } else {
             // Draw real body image sprite with dynamic micro-morphing
-            updateSpriteView(window.bodyAvatarState);
+            updateSpriteView(window.bodyAvatarState, false);
             // Draw scrolling laser scanner line overlay
             const spriteScanlineCanvas = document.getElementById('sprite-scanline-canvas');
             if (spriteScanlineCanvas) {
               drawSpriteScanlineFrame(spriteScanlineCanvas, window.bodyAvatarState);
             }
           }
+
+          // Draw to lightbox elements if active
+          const lightboxEl = document.getElementById('body-shape-lightbox');
+          if (lightboxEl && lightboxEl.classList.contains('active')) {
+            const lbCanvas = document.getElementById('lightbox-body-avatar');
+            const lbSprite = document.getElementById('lightbox-body-sprite');
+            const lbScanline = document.getElementById('lightbox-sprite-scanline');
+            if (scanMode) {
+              if (lbCanvas) {
+                lbCanvas.style.display = 'block';
+                drawBodyShapeFrame(window.bodyAvatarState, lbCanvas);
+              }
+              if (lbSprite) lbSprite.style.display = 'none';
+            } else {
+              if (lbCanvas) lbCanvas.style.display = 'none';
+              if (lbSprite) {
+                lbSprite.style.display = 'block';
+                updateSpriteView(window.bodyAvatarState, true);
+              }
+              if (lbScanline) {
+                drawSpriteScanlineFrame(lbScanline, window.bodyAvatarState);
+              }
+            }
+          }
         }
+
+        // Increment scan line scroll coordinate dynamically
+        if (window.bodyAvatarScanY === undefined) {
+          window.bodyAvatarScanY = 30;
+        } else {
+          window.bodyAvatarScanY += 1.5;
+          if (window.bodyAvatarScanY > 210) {
+            window.bodyAvatarScanY = 15;
+          }
+        }
+
         window.bodyAvatarAnimId = requestAnimationFrame(render);
       }
       window.bodyAvatarAnimId = requestAnimationFrame(render);
@@ -1311,10 +1378,13 @@ document.addEventListener('DOMContentLoaded', () => {
         window.bodyAvatarScanY = 30;
       }
       
-      const scanY = window.bodyAvatarScanY;
+      const scaledScanY = (window.bodyAvatarScanY / 220) * canvas.height;
+      const startX = canvas.width * 0.125; // 20 for 160
+      const endX = canvas.width * 0.875;   // 140 for 160
+      const width = endX - startX;
       
       // Neon laser line
-      const laserGrad = ctx.createLinearGradient(20, 0, 140, 0);
+      const laserGrad = ctx.createLinearGradient(startX, 0, endX, 0);
       laserGrad.addColorStop(0, 'rgba(16, 185, 129, 0)');
       laserGrad.addColorStop(0.3, 'rgba(16, 185, 129, 0.4)');
       laserGrad.addColorStop(0.5, 'rgba(52, 211, 153, 1)');
@@ -1322,25 +1392,25 @@ document.addEventListener('DOMContentLoaded', () => {
       laserGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
       
       ctx.strokeStyle = laserGrad;
-      ctx.lineWidth = 2;
+      ctx.lineWidth = canvas.width < 200 ? 2 : 3;
       ctx.shadowBlur = 8;
       ctx.shadowColor = 'rgba(52, 211, 153, 0.8)';
       
       ctx.beginPath();
-      ctx.moveTo(20, scanY);
-      ctx.lineTo(140, scanY);
+      ctx.moveTo(startX, scaledScanY);
+      ctx.lineTo(endX, scaledScanY);
       ctx.stroke();
       
       // Reset shadow
       ctx.shadowBlur = 0;
       ctx.shadowColor = 'transparent';
       
-      const laserGlow = ctx.createLinearGradient(0, scanY - 5, 0, scanY + 5);
+      const laserGlow = ctx.createLinearGradient(0, scaledScanY - 5, 0, scaledScanY + 5);
       laserGlow.addColorStop(0, 'rgba(16, 185, 129, 0)');
       laserGlow.addColorStop(0.5, 'rgba(16, 185, 129, 0.06)');
       laserGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
       ctx.fillStyle = laserGlow;
-      ctx.fillRect(20, scanY - 5, 120, 10);
+      ctx.fillRect(startX, scaledScanY - 5, width, 10);
     }
   }
 
@@ -1359,10 +1429,13 @@ document.addEventListener('DOMContentLoaded', () => {
       window.bodyAvatarScanY = 30;
     }
     
-    const scanY = window.bodyAvatarScanY;
+    const scaledScanY = (window.bodyAvatarScanY / 220) * canvas.height;
+    const startX = canvas.width * 0.09;
+    const endX = canvas.width * 0.91;
+    const width = endX - startX;
     
     // Laser Beam Line
-    const laserGrad = ctx.createLinearGradient(15, 0, 145, 0);
+    const laserGrad = ctx.createLinearGradient(startX, 0, endX, 0);
     laserGrad.addColorStop(0, 'rgba(16, 185, 129, 0)');
     laserGrad.addColorStop(0.3, 'rgba(16, 185, 129, 0.4)');
     laserGrad.addColorStop(0.5, 'rgba(52, 211, 153, 1)');
@@ -1370,13 +1443,13 @@ document.addEventListener('DOMContentLoaded', () => {
     laserGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
     
     ctx.strokeStyle = laserGrad;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = canvas.width < 200 ? 2.5 : 3.5;
     ctx.shadowBlur = 8;
     ctx.shadowColor = 'rgba(52, 211, 153, 0.8)';
     
     ctx.beginPath();
-    ctx.moveTo(15, scanY);
-    ctx.lineTo(145, scanY);
+    ctx.moveTo(startX, scaledScanY);
+    ctx.lineTo(endX, scaledScanY);
     ctx.stroke();
     
     // Reset shadow
@@ -1384,17 +1457,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.shadowColor = 'transparent';
     
     // Laser Beam Glow Block
-    const laserGlow = ctx.createLinearGradient(0, scanY - 6, 0, scanY + 6);
+    const laserGlow = ctx.createLinearGradient(0, scaledScanY - 6, 0, scaledScanY + 6);
     laserGlow.addColorStop(0, 'rgba(16, 185, 129, 0)');
     laserGlow.addColorStop(0.5, 'rgba(16, 185, 129, 0.08)');
     laserGlow.addColorStop(1, 'rgba(16, 185, 129, 0)');
     ctx.fillStyle = laserGlow;
-    ctx.fillRect(15, scanY - 6, 130, 12);
+    ctx.fillRect(startX, scaledScanY - 6, width, 12);
   }
 
   // Update Threads photo cropped view with micro-morphing dimensions
-  function updateSpriteView(avatarState) {
-    const spriteDiv = el.bodyShapeSprite || document.getElementById('body-shape-sprite');
+  function updateSpriteView(avatarState, isLightbox = false) {
+    const spriteDiv = isLightbox 
+      ? document.getElementById('lightbox-body-sprite') 
+      : (el.bodyShapeSprite || document.getElementById('body-shape-sprite'));
     if (!spriteDiv) return;
     
     const { gender, height, muscle, fatPercent } = avatarState;
@@ -1417,7 +1492,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Default 1-9 sprite loading
     if (gender === 'male') {
-      spriteDiv.style.backgroundImage = "url('./male_body_shapes.png')";
+      spriteDiv.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
       spriteDiv.style.backgroundSize = "300% 300%";
       
       const heightM = height / 100;
@@ -1502,7 +1577,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Define cropped thumbnail styling (both are 3x3 grids)
         const isMale = gender === 'male';
-        const imgUrl = isMale ? './male_body_shapes.png' : './female_body_shapes.png';
+        const imgUrl = isMale ? './male_body_shapes_10_30_grid.png' : './female_body_shapes.png';
         const bgSize = '300% 300%';
         const bgPos = `${(idx % 3) * 50}% ${Math.floor(idx / 3) * 50}%`;
         

@@ -247,10 +247,19 @@
                     <button type="button" id="btn-toggle-sprite" class="avatar-toggle-btn" style="background: transparent; color: var(--text-secondary); border: none; border-radius: 16px; padding: 4px 12px; font-size: 10px; font-weight: 700; cursor: pointer; transition: all 0.2s;">寫實對照</button>
                   </div>
                   
-                  <div style="position: relative; width: 160px; height: 220px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden;" id="avatar-viewport">
+                  <div style="position: relative; width: 160px; height: 220px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; cursor: pointer;" id="avatar-viewport" title="點擊放大檢視">
                     <canvas id="body-shape-avatar" width="160" height="220" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 2;"></canvas>
                     <div id="body-shape-sprite" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
                       <canvas id="sprite-scanline-canvas" width="160" height="220" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
+                    </div>
+                    <!-- Zoom indicator icon overlay -->
+                    <div class="viewport-zoom-hint">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                        <line x1="11" y1="8" x2="11" y2="14"></line>
+                        <line x1="8" y1="11" x2="14" y2="11"></line>
+                      </svg>
                     </div>
                   </div>
                   
@@ -1211,6 +1220,27 @@
             上傳至雲端 (覆蓋雲端)
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BODY SHAPE LIGHTBOX MODAL -->
+  <div id="body-shape-lightbox" class="modal-overlay" style="z-index: 2000;">
+    <div class="lightbox-content glass-panel" style="position: relative; max-width: 380px; width: 90%; background: rgba(10, 10, 15, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 24px;">
+      <button id="btn-close-lightbox" class="close-modal-btn" style="position: absolute; right: 16px; top: 16px; font-size: 24px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; transition: color 0.2s;">&times;</button>
+      
+      <h2 id="lightbox-title" style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: white;">體態放大檢視</h2>
+      <p id="lightbox-subtitle" style="font-size: 12px; color: var(--text-secondary); margin: 0 0 16px 0;">-- kg / -- % 體脂</p>
+      
+      <div style="position: relative; width: 280px; height: 380px; background: rgba(0,0,0,0.3); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 30px rgba(139, 92, 246, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4); overflow: hidden;" id="lightbox-viewport">
+        <canvas id="lightbox-body-avatar" width="280" height="380" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index: 2;"></canvas>
+        <div id="lightbox-body-sprite" style="display: none; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
+          <canvas id="lightbox-sprite-scanline" width="280" height="380" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
+        </div>
+      </div>
+      
+      <div style="margin-top: 16px; width: 100%; display: flex; justify-content: center; gap: 8px;">
+        <button type="button" id="lightbox-btn-close" class="primary-btn green-btn" style="min-width: 100px; justify-content: center; font-size: 13px; padding: 8px 16px; border-radius: 8px; cursor: pointer;">關閉</button>
       </div>
     </div>
   </div>
