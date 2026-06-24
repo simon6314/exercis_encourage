@@ -904,19 +904,6 @@ document.addEventListener('DOMContentLoaded', () => {
     ]
   };
 
-  // Custom positioning overrides for male_body_shapes_10_30_grid.png due to slight grid offsets in source image
-  const MALE_SPRITE_POSITIONS = [
-    { x: 0.8971, y: 1.3158 }, // Preset 0 (#1)
-    { x: 50.0598, y: 1.3158 }, // Preset 1 (#2)
-    { x: 100.1196, y: 1.3158 }, // Preset 2 (#3)
-    { x: 0.7177, y: 50.7177 }, // Preset 3 (#4)
-    { x: 50.2990, y: 50.7177 }, // Preset 4 (#5)
-    { x: 100.0000, y: 50.7177 }, // Preset 5 (#6)
-    { x: 0.6579, y: 100.1196 }, // Preset 6 (#7)
-    { x: 52.2129, y: 100.1196 }, // Preset 7 (#8)
-    { x: 101.4952, y: 100.1196 }  // Preset 8 (#9)
-  ];
-
   // Distance helper to find closest body preset to current stats
   function getClosestPresetIndex(gender, userMuscleRatio, userFatPercent) {
     const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
@@ -934,45 +921,6 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     return closestIndex;
-  }
-
-  // Helper to find the two closest body presets and calculate their blending weights (opacities)
-  function getTwoClosestPresets(gender, userMuscleRatio, userFatPercent) {
-    const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
-    const list = [];
-    for (let i = 0; i < presets.length; i++) {
-      const p = presets[i];
-      const dMuscle = (userMuscleRatio - p.muscleRatio) * 20;
-      const dFat = userFatPercent - p.fatPercent;
-      const distance = dMuscle * dMuscle + dFat * dFat;
-      list.push({ index: i, distance: distance, preset: p });
-    }
-    
-    // Sort by distance ascending
-    list.sort((a, b) => a.distance - b.distance);
-    
-    const first = list[0];
-    const second = list[1];
-    
-    // Inverse distance weighting
-    const eps = 1e-4;
-    const w1 = 1.0 / (Math.sqrt(first.distance) + eps);
-    const w2 = 1.0 / (Math.sqrt(second.distance) + eps);
-    const totalW = w1 + w2;
-    
-    let opacityA = w1 / totalW;
-    let opacityB = w2 / totalW;
-    
-    // If the closest is extremely close, make it dominant to avoid ghosting
-    if (first.distance < 0.05) {
-      opacityA = 1.0;
-      opacityB = 0.0;
-    }
-    
-    return {
-      primary: { index: first.index, preset: first.preset, opacity: opacityA },
-      secondary: { index: second.index, preset: second.preset, opacity: opacityB }
-    };
   }
 
   // --- Dynamic Body Shape Visualizer (Sci-Fi Scanner style) ---
@@ -1483,55 +1431,18 @@ document.addEventListener('DOMContentLoaded', () => {
       : (el.bodyShapeSprite || document.getElementById('body-shape-sprite'));
     if (!spriteDiv) return;
     
-    // Fetch the primary and secondary layer divs
-    const layerPrimary = isLightbox 
-      ? document.getElementById('lightbox-sprite-layer-primary')
-      : document.getElementById('body-sprite-layer-primary');
-    const layerSecondary = isLightbox 
-      ? document.getElementById('lightbox-sprite-layer-secondary')
-      : document.getElementById('body-sprite-layer-secondary');
-      
     const { gender, height, muscle, fatPercent } = avatarState;
-    
-    // Check if the user is looking at their actual estimated stats (not previewing)
-    // and they match the specific custom body profile (179cm, 79kg, 23% body fat)
-    const isActualUserCustom = !window.bodyAvatarPreviewMode && 
-                               gender === 'male' && 
-                               (height >= 177 && height <= 181) && 
-                               (fatPercent >= 21.5 && fatPercent <= 24.5);
-                               
-    if (isActualUserCustom) {
-      spriteDiv.style.backgroundImage = "none";
-      spriteDiv.style.transform = "scale(1, 1)"; // reset micro-morphing for custom image
-      
-      if (layerPrimary) {
-        layerPrimary.style.backgroundImage = "url('./male_user_shape_23pct.png')";
-        layerPrimary.style.backgroundSize = "contain";
-        layerPrimary.style.backgroundPosition = "center center";
-        layerPrimary.style.opacity = "1.0";
-      }
-      if (layerSecondary) {
-        layerSecondary.style.backgroundImage = "none";
-        layerSecondary.style.opacity = "0.0";
-      }
-      return;
-    }
-    
-    // Clear background on container itself to avoid double images
-    spriteDiv.style.backgroundImage = "none";
     
     const heightM = height / 100;
     const stdMuscleBase = heightM * heightM * 22 * 0.4;
     const muscleRatio = muscle / (stdMuscleBase || 28);
     
-    // Find the two closest presets and calculate relative opacities
-    const blend = getTwoClosestPresets(gender, muscleRatio, fatPercent);
+    const closestIdx = getClosestPresetIndex(gender, muscleRatio, fatPercent);
     const presets = BODY_PRESETS[gender] || BODY_PRESETS.male;
+    const preset = presets[closestIdx];
     
-    // We apply micro-morphing based on the closest (primary) preset
-    const primaryPreset = blend.primary.preset;
-    const fatDiff = fatPercent - primaryPreset.fatPercent;
-    const muscleDiff = muscleRatio - primaryPreset.muscleRatio;
+    const fatDiff = fatPercent - preset.fatPercent;
+    const muscleDiff = muscleRatio - preset.muscleRatio;
     
     const fatScaleX = fatDiff * 0.012;
     const muscleScaleX = muscleDiff * 0.15;
@@ -1540,44 +1451,17 @@ document.addEventListener('DOMContentLoaded', () => {
     
     spriteDiv.style.transform = `scale(${scaleX}, ${heightScale})`;
     
-    // Render Primary Layer
-    if (layerPrimary) {
-      const idxA = blend.primary.index;
-      if (gender === 'male') {
-        layerPrimary.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
-        const customPos = MALE_SPRITE_POSITIONS[idxA];
-        layerPrimary.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
-      } else {
-        layerPrimary.style.backgroundImage = "url('./female_body_shapes.png')";
-        const col = idxA % 3;
-        const row = Math.floor(idxA / 3);
-        layerPrimary.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
-      }
-      layerPrimary.style.backgroundSize = "300% 300%";
-      layerPrimary.style.opacity = blend.primary.opacity.toString();
-    }
+    const col = closestIdx % 3;
+    const row = Math.floor(closestIdx / 3);
     
-    // Render Secondary Layer
-    if (layerSecondary) {
-      if (blend.secondary.opacity > 0.01) {
-        const idxB = blend.secondary.index;
-        if (gender === 'male') {
-          layerSecondary.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
-          const customPos = MALE_SPRITE_POSITIONS[idxB];
-          layerSecondary.style.backgroundPosition = `${customPos.x}% ${customPos.y}%`;
-        } else {
-          layerSecondary.style.backgroundImage = "url('./female_body_shapes.png')";
-          const col = idxB % 3;
-          const row = Math.floor(idxB / 3);
-          layerSecondary.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
-        }
-        layerSecondary.style.backgroundSize = "300% 300%";
-        layerSecondary.style.opacity = blend.secondary.opacity.toString();
-      } else {
-        layerSecondary.style.backgroundImage = "none";
-        layerSecondary.style.opacity = "0.0";
-      }
+    if (gender === 'male') {
+      spriteDiv.style.backgroundImage = "url('./male_body_shapes_10_30_grid.png')";
+    } else {
+      spriteDiv.style.backgroundImage = "url('./female_body_shapes.png')";
     }
+    spriteDiv.style.backgroundPosition = `${col * 50}% ${row * 50}%`;
+    spriteDiv.style.backgroundSize = "300% 300%";
+    spriteDiv.style.opacity = "1.0";
   }
 
   // Render 3x3 Grid Matrix thumbnails dynamically using CSS sprite sheets
@@ -1612,13 +1496,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const imgUrl = isMale ? './male_body_shapes_10_30_grid.png' : './female_body_shapes.png';
         const bgSize = '300% 300%';
         
-        let bgPos;
-        if (isMale) {
-          const customPos = MALE_SPRITE_POSITIONS[idx];
-          bgPos = `${customPos.x}% ${customPos.y}%`;
-        } else {
-          bgPos = `${(idx % 3) * 50}% ${Math.floor(idx / 3) * 50}%`;
-        }
+        const col = idx % 3;
+        const row = Math.floor(idx / 3);
+        const bgPos = `${col * 50}% ${row * 50}%`;
         
         cell.innerHTML = `
           <span class="num-label">#${idx + 1} ${p.label}</span>
