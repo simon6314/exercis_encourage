@@ -2907,6 +2907,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Profile summary tab
     el.summaryGender.textContent = p.gender === 'male' ? '男性 (Male)' : '女性 (Female)';
     el.summaryAge.textContent = `${p.age} 歲`;
+    if (el.summaryHeight) el.summaryHeight.textContent = `${p.height} cm`;
     el.summaryWeight.textContent = `${parseFloat(p.weight).toFixed(2)} kg`;
     el.summaryMuscle.textContent = `${parseFloat(p.muscle).toFixed(2)} kg`;
     el.summaryFatPercent.textContent = `${parseFloat(p.fatPercent).toFixed(1)} %`;
