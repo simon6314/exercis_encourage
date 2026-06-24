@@ -255,7 +255,18 @@ document.addEventListener('DOMContentLoaded', () => {
     bankWithdrawVal: document.getElementById('bank-withdraw-val'),
     bankRemainingPercent: document.getElementById('bank-remaining-percent'),
     bankProgressBar: document.getElementById('bank-progress-bar'),
-    bankMsgBox: document.getElementById('bank-msg-box')
+    bankMsgBox: document.getElementById('bank-msg-box'),
+    
+    // Body Size Estimator elements
+    estWaistVal: document.getElementById('est-waist-val'),
+    estChestVal: document.getElementById('est-chest-val'),
+    estBicepsVal: document.getElementById('est-biceps-val'),
+    proj7Waist: document.getElementById('proj-7-waist'),
+    proj7Chest: document.getElementById('proj-7-chest'),
+    proj7Biceps: document.getElementById('proj-7-biceps'),
+    proj30Waist: document.getElementById('proj-30-waist'),
+    proj30Chest: document.getElementById('proj-30-chest'),
+    proj30Biceps: document.getElementById('proj-30-biceps')
   };
 
   // Temporary container for AI estimated food items
@@ -448,6 +459,33 @@ document.addEventListener('DOMContentLoaded', () => {
     const baseTdee = Math.round(bmr * factor);
     const offset = calculateAdaptiveTdeeOffset();
     return baseTdee + offset;
+  }
+
+  // --- Body Size Estimator Formula ---
+  function calculateBodyMeasurements(gender, height, weight, fatPercent) {
+    const fm = weight * (fatPercent / 100);
+    const ffm = weight * (1 - fatPercent / 100);
+    
+    let waist = 0;
+    let chest = 0;
+    let biceps = 0;
+    
+    if (gender === 'female') {
+      waist = height * 0.35 + fm * 1.0;
+      chest = height * 0.28 + ffm * 0.5 + fm * 0.35 + 8;
+      biceps = ffm * 0.3 + fm * 0.25 + 8;
+    } else {
+      // Default: male
+      waist = height * 0.38 + fm * 1.2;
+      chest = height * 0.3 + ffm * 0.6 + fm * 0.2 + 12;
+      biceps = ffm * 0.35 + fm * 0.2 + 10;
+    }
+    
+    return {
+      waist: waist.toFixed(1),
+      chest: chest.toFixed(1),
+      biceps: biceps.toFixed(1)
+    };
   }
 
   // --- Plateau Detector ---
@@ -844,6 +882,31 @@ document.addEventListener('DOMContentLoaded', () => {
     formatProjText(el.proj30Muscle, gain30Muscle, 'muscle', future30Muscle, 'kg', currentMuscle);
     formatProjText(el.proj30Fat, future30FatPct - currentFatPct, 'fat', future30FatPct, '%', currentFatPct);
     
+    // Calculate and render projected size measurements (waist, chest, biceps)
+    const curSizes = calculateBodyMeasurements(p.gender, p.height, currentWeight, currentFatPct);
+    const sizes7 = calculateBodyMeasurements(p.gender, p.height, future7Weight, future7FatPct);
+    const sizes30 = calculateBodyMeasurements(p.gender, p.height, future30Weight, future30FatPct);
+    
+    const curWaist = parseFloat(curSizes.waist);
+    const curChest = parseFloat(curSizes.chest);
+    const curBiceps = parseFloat(curSizes.biceps);
+    
+    const f7Waist = parseFloat(sizes7.waist);
+    const f7Chest = parseFloat(sizes7.chest);
+    const f7Biceps = parseFloat(sizes7.biceps);
+    
+    const f30Waist = parseFloat(sizes30.waist);
+    const f30Chest = parseFloat(sizes30.chest);
+    const f30Biceps = parseFloat(sizes30.biceps);
+    
+    formatProjText(el.proj7Waist, f7Waist - curWaist, 'waist', f7Waist, 'cm', curWaist);
+    formatProjText(el.proj7Chest, f7Chest - curChest, 'chest', f7Chest, 'cm', curChest);
+    formatProjText(el.proj7Biceps, f7Biceps - curBiceps, 'biceps', f7Biceps, 'cm', curBiceps);
+    
+    formatProjText(el.proj30Waist, f30Waist - curWaist, 'waist', f30Waist, 'cm', curWaist);
+    formatProjText(el.proj30Chest, f30Chest - curChest, 'chest', f30Chest, 'cm', curChest);
+    formatProjText(el.proj30Biceps, f30Biceps - curBiceps, 'biceps', f30Biceps, 'cm', curBiceps);
+    
     // Update Body Tab Detailed statistics
     el.currentDailyDeficit.textContent = `${Math.round(netDeficit)} kcal`;
     if (netDeficit > 0) {
@@ -863,8 +926,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let color = 'white';
     let arrow = '';
     
-    if (metricType === 'weight' || metricType === 'fat') {
-      // Weight & fat reduction are healthy/positive (green), increase is negative (red)
+    if (metricType === 'weight' || metricType === 'fat' || metricType === 'waist') {
+      // Weight, fat & waist reduction are healthy/positive (green), increase is negative (red)
       if (changeValue < -0.01) {
         color = 'var(--accent-green)';
         arrow = ' ↓';
@@ -872,8 +935,8 @@ document.addEventListener('DOMContentLoaded', () => {
         color = '#ef4444';
         arrow = ' ↑';
       }
-    } else if (metricType === 'muscle') {
-      // Muscle gain is positive (purple), loss is negative (red)
+    } else if (metricType === 'muscle' || metricType === 'chest' || metricType === 'biceps') {
+      // Muscle, chest & biceps gain are positive (purple), loss is negative (red)
       if (changeValue > 0.01) {
         color = 'var(--accent-purple)';
         arrow = ' ↑';
@@ -883,24 +946,29 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    const isOneDecimal = (metricType === 'fat' || metricType === 'waist' || metricType === 'chest' || metricType === 'biceps');
+    const decimalPlaces = isOneDecimal ? 1 : 2;
+    
     const isPct = unit === '%';
     const spacing = isPct ? '' : ' ';
-    const futureStr = futureValue.toFixed(metricType === 'fat' ? 1 : 2);
+    const futureStr = futureValue.toFixed(decimalPlaces);
     const changeStr = changeValue >= 0 
-      ? `+${changeValue.toFixed(metricType === 'fat' ? 1 : 2)}` 
-      : `${changeValue.toFixed(metricType === 'fat' ? 1 : 2)}`;
+      ? `+${changeValue.toFixed(decimalPlaces)}` 
+      : `${changeValue.toFixed(decimalPlaces)}`;
       
-    element.style.color = color;
-    if (currentValue !== undefined) {
-      const currentStr = currentValue.toFixed(metricType === 'fat' ? 1 : 2);
-      element.innerHTML = `
-        ${futureStr}${spacing}${unit}${arrow}
-        <div class="proj-delta" style="font-size: 10px; font-weight: 500; opacity: 0.8; margin-top: 3px; white-space: nowrap;">
-          現 ${currentStr}${unit} (${changeStr}${spacing}${unit})
-        </div>
-      `;
-    } else {
-      element.innerHTML = `${futureStr}${spacing}${unit} <span class="proj-delta" style="font-size: 11px; font-weight: 500; opacity: 0.85;">(${changeStr}${spacing}${unit})</span>${arrow}`;
+    if (element) {
+      element.style.color = color;
+      if (currentValue !== undefined) {
+        const currentStr = currentValue.toFixed(decimalPlaces);
+        element.innerHTML = `
+          ${futureStr}${spacing}${unit}${arrow}
+          <div class="proj-delta" style="font-size: 10px; font-weight: 500; opacity: 0.8; margin-top: 3px; white-space: nowrap;">
+            現 ${currentStr}${unit} (${changeStr}${spacing}${unit})
+          </div>
+        `;
+      } else {
+        element.innerHTML = `${futureStr}${spacing}${unit} <span class="proj-delta" style="font-size: 11px; font-weight: 500; opacity: 0.85;">(${changeStr}${spacing}${unit})</span>${arrow}`;
+      }
     }
   }
 
@@ -2551,6 +2619,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.estWeightVal) el.estWeightVal.textContent = `${est.weight.toFixed(2)} kg`;
     if (el.estMuscleVal) el.estMuscleVal.textContent = `${est.muscle.toFixed(2)} kg`;
     if (el.estFatVal) el.estFatVal.textContent = `${est.fatPercent.toFixed(1)} %`;
+    
+    // Render current estimated sizes
+    const sizes = calculateBodyMeasurements(state.profile.gender, state.profile.height, est.weight, est.fatPercent);
+    if (el.estWaistVal) el.estWaistVal.textContent = `${sizes.waist} cm`;
+    if (el.estChestVal) el.estChestVal.textContent = `${sizes.chest} cm`;
+    if (el.estBicepsVal) el.estBicepsVal.textContent = `${sizes.biceps} cm`;
     
     const log = getActiveLog();
     if (el.inputDailyWeight) {

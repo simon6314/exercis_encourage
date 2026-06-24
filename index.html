@@ -275,6 +275,21 @@
                   </div>
                 </div>
 
+                <div class="proj-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px; border-top: 1px dashed var(--glass-border); padding-top: 12px;">
+                  <div class="proj-stat">
+                    <span class="lbl">預估腰圍 (Waist)</span>
+                    <span id="est-waist-val" class="val" style="color: var(--accent-green); font-size: 14px; font-weight: 700;">-- cm</span>
+                  </div>
+                  <div class="proj-stat">
+                    <span class="lbl">預估胸圍 (Chest)</span>
+                    <span id="est-chest-val" class="val" style="color: var(--accent-purple); font-size: 14px; font-weight: 700;">-- cm</span>
+                  </div>
+                  <div class="proj-stat">
+                    <span class="lbl">預估手臂圍 (Biceps)</span>
+                    <span id="est-biceps-val" class="val" style="color: var(--accent-orange); font-size: 14px; font-weight: 700;">-- cm</span>
+                  </div>
+                </div>
+
                 <div class="avatar-visualizer-container" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
                   <div style="position: relative; width: 160px; height: 220px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; cursor: pointer;" id="avatar-viewport" title="點擊放大檢視">
                     <div id="body-shape-sprite" style="display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
@@ -407,6 +422,20 @@
                         <span id="proj-7-fat" class="val">-- %</span>
                       </div>
                     </div>
+                    <div class="proj-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; border-top: 1px dashed var(--glass-border); padding-top: 8px;">
+                      <div class="proj-stat">
+                        <span class="lbl">預估腰圍</span>
+                        <span id="proj-7-waist" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">預估胸圍</span>
+                        <span id="proj-7-chest" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">預估手臂圍</span>
+                        <span id="proj-7-biceps" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
+                      </div>
+                    </div>
                   </div>
 
                   <!-- 30 Days Projection -->
@@ -424,6 +453,20 @@
                       <div class="proj-stat">
                         <span class="lbl">體脂率 (Body Fat)</span>
                         <span id="proj-30-fat" class="val">-- %</span>
+                      </div>
+                    </div>
+                    <div class="proj-stats" style="grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 10px; border-top: 1px dashed var(--glass-border); padding-top: 8px;">
+                      <div class="proj-stat">
+                        <span class="lbl">預估腰圍</span>
+                        <span id="proj-30-waist" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">預估胸圍</span>
+                        <span id="proj-30-chest" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
+                      </div>
+                      <div class="proj-stat">
+                        <span class="lbl">預估手臂圍</span>
+                        <span id="proj-30-biceps" class="val" style="font-size: 12px; font-weight: 600;">-- cm</span>
                       </div>
                     </div>
                   </div>
