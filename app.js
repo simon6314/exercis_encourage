@@ -248,7 +248,14 @@ document.addEventListener('DOMContentLoaded', () => {
     insightWorkoutYesVal: document.getElementById('insight-workout-yes-val'),
     insightWorkoutYesBar: document.getElementById('insight-workout-yes-bar'),
     insightWorkoutNoVal: document.getElementById('insight-workout-no-val'),
-    insightWorkoutNoBar: document.getElementById('insight-workout-no-bar')
+    insightWorkoutNoBar: document.getElementById('insight-workout-no-bar'),
+    
+    // Calorie Bank elements
+    bankDepositVal: document.getElementById('bank-deposit-val'),
+    bankWithdrawVal: document.getElementById('bank-withdraw-val'),
+    bankRemainingPercent: document.getElementById('bank-remaining-percent'),
+    bankProgressBar: document.getElementById('bank-progress-bar'),
+    bankMsgBox: document.getElementById('bank-msg-box')
   };
 
   // Temporary container for AI estimated food items
@@ -580,6 +587,120 @@ document.addEventListener('DOMContentLoaded', () => {
       avgFatPctChangeWorkoutYes,
       avgFatPctChangeWorkoutNo
     };
+  }
+
+  // --- Calorie Bank & Weekend Cheat Meal Budget ---
+  function getWeekRange(dateStr) {
+    const date = new Date(dateStr + 'T00:00:00');
+    const day = date.getDay(); // 0: Sunday, 1: Monday, etc.
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    
+    const monday = new Date(date);
+    monday.setDate(date.getDate() + diffToMonday);
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(monday);
+      d.setDate(monday.getDate() + i);
+      const pad = (n) => String(n).padStart(2, '0');
+      dates.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
+    }
+    return {
+      monday: dates[0],
+      tuesday: dates[1],
+      wednesday: dates[2],
+      thursday: dates[3],
+      friday: dates[4],
+      saturday: dates[5],
+      sunday: dates[6],
+      weekDays: dates.slice(0, 5),
+      weekendDays: dates.slice(5, 7)
+    };
+  }
+
+  function updateCalorieBankUI() {
+    if (!el.bankDepositVal || !el.bankWithdrawVal || !el.bankRemainingPercent || !el.bankProgressBar || !el.bankMsgBox) {
+      return;
+    }
+    
+    const tdee = calculateTdee();
+    const { weekDays, weekendDays } = getWeekRange(currentActiveDate);
+    
+    let totalDeficit = 0;
+    let weekendSurplus = 0;
+    
+    // 1. Calculate Monday-Friday deficits
+    weekDays.forEach(d => {
+      const entry = state.dailyLogs[d];
+      if (entry) {
+        const intake = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        // Deficit = (TDEE + Workout) - Intake
+        const dailyDeficit = (tdee + workout) - intake;
+        totalDeficit += dailyDeficit;
+      }
+    });
+    
+    // Ensure deposit isn't negative for UI display (though internally it could be)
+    const displayDeposit = Math.max(0, Math.round(totalDeficit));
+    el.bankDepositVal.textContent = `${displayDeposit} kcal`;
+    
+    // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
+    weekendDays.forEach(d => {
+      const entry = state.dailyLogs[d];
+      if (entry) {
+        const intake = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dailySurplus = intake - (tdee + workout);
+        if (dailySurplus > 0) {
+          weekendSurplus += dailySurplus;
+        }
+      }
+    });
+    
+    const displayWithdraw = Math.round(weekendSurplus);
+    el.bankWithdrawVal.textContent = `${displayWithdraw} kcal`;
+    
+    // 3. Remaining balance and progress bar
+    const remaining = displayDeposit - displayWithdraw;
+    const remainingPct = displayDeposit > 0 ? Math.max(0, Math.min(100, (remaining / displayDeposit) * 100)) : 0;
+    
+    el.bankRemainingPercent.textContent = `${Math.round(remainingPct)}%`;
+    el.bankProgressBar.style.width = `${remainingPct}%`;
+    
+    if (remainingPct > 50) {
+      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-green), var(--accent-yellow))';
+    } else if (remainingPct > 20) {
+      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-yellow), var(--accent-orange))';
+    } else {
+      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-orange), #ef4444)';
+    }
+    
+    // 4. Update the message box based on current active date
+    const today = new Date(currentActiveDate + 'T00:00:00');
+    const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
+    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
+    
+    let msgHTML = '';
+    if (isWeekend) {
+      if (remaining > 0) {
+        msgHTML = `🎉 <strong>週末享用期！</strong>目前銀行餘額還剩 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>。<br>您今天可以安心享用額外美食而不影響本週減脂進度！`;
+      } else if (displayDeposit === 0) {
+        msgHTML = `💡 <strong>貼心提醒：</strong>您本週週間（週一至週五）沒有累積任何卡路里赤字存款。週末建議維持正常 TDEE 攝取以避免脂肪囤積喔！`;
+      } else {
+        msgHTML = `⚠️ <strong>銀行已透支！</strong>您的週末大餐已超出本週所存的 <strong style="color: #ef4444;">${Math.round(-remaining)} kcal</strong>。<br>建議今天多散步或進行 30 分鐘有氧運動來補回赤字！`;
+      }
+    } else {
+      // Weekdays
+      if (displayDeposit > 0) {
+        const weekendDailyBudget = Math.round(displayDeposit / 2);
+        msgHTML = `💪 <strong>積沙成塔中！</strong>本週已為週末大餐存下 <strong style="color: var(--accent-green);">${displayDeposit} kcal</strong>。<br>預估這週末<strong>每天可以多吃 ${weekendDailyBudget} kcal</strong> 的美食！繼續保持！`;
+      } else {
+        msgHTML = `🏦 <strong>卡路里銀行已開戶！</strong>週一至週五多運動或少攝取熱量，所創造的赤字會存入此處。週末就能轉換為無罪惡感的放縱餐額度！`;
+      }
+    }
+    
+    el.bankMsgBox.innerHTML = msgHTML;
   }
 
   // --- Exercise Calories Calculator ---
@@ -2805,6 +2926,9 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // 11. Update Cross-Correlation Insights
     updateCrossCorrelationsUI();
+
+    // 12. Update Calorie Bank
+    updateCalorieBankUI();
   }
 
   function updateCrossCorrelationsUI() {
