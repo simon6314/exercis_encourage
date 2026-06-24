@@ -2327,13 +2327,13 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const log = getActiveLog();
     if (el.inputDailyWeight) {
-      el.inputDailyWeight.value = (log.weight !== undefined && log.weight !== null) ? log.weight : '';
+      el.inputDailyWeight.value = (log.weight !== undefined && log.weight !== null) ? parseFloat(log.weight).toFixed(2) : '';
     }
     if (el.inputDailyMuscle) {
-      el.inputDailyMuscle.value = (log.muscle !== undefined && log.muscle !== null) ? log.muscle : '';
+      el.inputDailyMuscle.value = (log.muscle !== undefined && log.muscle !== null) ? parseFloat(log.muscle).toFixed(2) : '';
     }
     if (el.inputDailyFat) {
-      el.inputDailyFat.value = (log.fatPercent !== undefined && log.fatPercent !== null) ? log.fatPercent : '';
+      el.inputDailyFat.value = (log.fatPercent !== undefined && log.fatPercent !== null) ? parseFloat(log.fatPercent).toFixed(1) : '';
     }
     
     const p = state.profile;
@@ -2700,10 +2700,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // 7. Profile summary tab
     el.summaryGender.textContent = p.gender === 'male' ? '男性 (Male)' : '女性 (Female)';
     el.summaryAge.textContent = `${p.age} 歲`;
-    el.summaryHeight.textContent = `${p.height} cm`;
-    el.summaryWeight.textContent = `${p.weight} kg`;
-    el.summaryMuscle.textContent = `${p.muscle} kg`;
-    el.summaryFatPercent.textContent = `${p.fatPercent} %`;
+    el.summaryWeight.textContent = `${parseFloat(p.weight).toFixed(2)} kg`;
+    el.summaryMuscle.textContent = `${parseFloat(p.muscle).toFixed(2)} kg`;
+    el.summaryFatPercent.textContent = `${parseFloat(p.fatPercent).toFixed(1)} %`;
     el.summaryActivity.textContent = getActivityDisplayName(p.activity);
     el.summaryRestDays.textContent = `${p.restDays !== undefined ? p.restDays : 2} 天`;
     
@@ -3656,9 +3655,9 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
             const mVal = parseFloat(row.muscle);
             const fVal = parseFloat(row.bodyFat); // column name in Apps Script is bodyFat
             
-            if (!isNaN(wVal) && wVal > 0) logEntry.weight = wVal;
-            if (!isNaN(mVal) && mVal > 0) logEntry.muscle = mVal;
-            if (!isNaN(fVal) && fVal > 0) logEntry.fatPercent = fVal;
+            if (!isNaN(wVal) && wVal > 0) logEntry.weight = parseFloat(wVal.toFixed(2));
+            if (!isNaN(mVal) && mVal > 0) logEntry.muscle = parseFloat(mVal.toFixed(2));
+            if (!isNaN(fVal) && fVal > 0) logEntry.fatPercent = parseFloat(fVal.toFixed(1));
             
             state.dailyLogs[dateStr] = logEntry;
           });
@@ -3726,9 +3725,9 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     el.inputGender.value = p.gender;
     el.inputAge.value = p.age;
     el.inputHeight.value = p.height;
-    el.inputWeight.value = p.weight;
-    el.inputMuscle.value = p.muscle;
-    el.inputFatPercent.value = p.fatPercent;
+    el.inputWeight.value = parseFloat(p.weight).toFixed(2);
+    el.inputMuscle.value = parseFloat(p.muscle).toFixed(2);
+    el.inputFatPercent.value = parseFloat(p.fatPercent).toFixed(1);
     el.inputActivity.value = p.activity;
     el.inputRestDays.value = p.restDays !== undefined ? p.restDays : 2;
     
