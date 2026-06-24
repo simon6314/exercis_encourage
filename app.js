@@ -958,6 +958,84 @@ document.addEventListener('DOMContentLoaded', () => {
             const stateText = window.bodyAvatarState.weight.toFixed(1) + ' kg / ' + window.bodyAvatarState.fatPercent.toFixed(1) + '% 體脂';
             lbSubtitle.textContent = stateText;
           }
+          
+          // Initialize Lightbox Preview State and Sliders
+          if (window.bodyAvatarState) {
+            const heightM = window.bodyAvatarState.height / 100;
+            const stdMuscleBase = heightM * heightM * 22 * 0.4;
+            const initialMuscleRatio = window.bodyAvatarState.muscle / (stdMuscleBase || 28);
+            
+            window.lightboxPreviewState = {
+              gender: window.bodyAvatarState.gender,
+              height: window.bodyAvatarState.height,
+              weight: window.bodyAvatarState.weight,
+              fatPercent: window.bodyAvatarState.fatPercent,
+              muscleRatio: initialMuscleRatio,
+              muscle: window.bodyAvatarState.muscle
+            };
+            
+            const sliderFat = document.getElementById('lightbox-slider-fat');
+            const sliderMuscle = document.getElementById('lightbox-slider-muscle');
+            const fatValDisp = document.getElementById('lightbox-fat-val');
+            const muscleValDisp = document.getElementById('lightbox-muscle-val');
+            
+            if (sliderFat) sliderFat.value = window.lightboxPreviewState.fatPercent;
+            if (sliderMuscle) sliderMuscle.value = window.lightboxPreviewState.muscleRatio;
+            if (fatValDisp) fatValDisp.textContent = window.lightboxPreviewState.fatPercent.toFixed(1) + ' %';
+            if (muscleValDisp) muscleValDisp.textContent = window.lightboxPreviewState.muscleRatio.toFixed(2);
+          }
+        });
+      }
+      
+      // Bind Lightbox Slider & Reset Listeners once on init
+      const sliderFat = document.getElementById('lightbox-slider-fat');
+      const sliderMuscle = document.getElementById('lightbox-slider-muscle');
+      const btnResetLb = document.getElementById('lightbox-btn-reset');
+      
+      if (sliderFat) {
+        sliderFat.addEventListener('input', function() {
+          if (window.lightboxPreviewState) {
+            window.lightboxPreviewState.fatPercent = parseFloat(this.value);
+            const fatValDisp = document.getElementById('lightbox-fat-val');
+            if (fatValDisp) fatValDisp.textContent = window.lightboxPreviewState.fatPercent.toFixed(1) + ' %';
+          }
+        });
+      }
+      
+      if (sliderMuscle) {
+        sliderMuscle.addEventListener('input', function() {
+          if (window.lightboxPreviewState) {
+            window.lightboxPreviewState.muscleRatio = parseFloat(this.value);
+            const heightM = window.lightboxPreviewState.height / 100;
+            const stdMuscleBase = heightM * heightM * 22 * 0.4;
+            window.lightboxPreviewState.muscle = window.lightboxPreviewState.muscleRatio * (stdMuscleBase || 28);
+            const muscleValDisp = document.getElementById('lightbox-muscle-val');
+            if (muscleValDisp) muscleValDisp.textContent = window.lightboxPreviewState.muscleRatio.toFixed(2);
+          }
+        });
+      }
+      
+      if (btnResetLb) {
+        btnResetLb.addEventListener('click', () => {
+          if (window.bodyAvatarState && window.lightboxPreviewState) {
+            const heightM = window.bodyAvatarState.height / 100;
+            const stdMuscleBase = heightM * heightM * 22 * 0.4;
+            const initialMuscleRatio = window.bodyAvatarState.muscle / (stdMuscleBase || 28);
+            
+            window.lightboxPreviewState.fatPercent = window.bodyAvatarState.fatPercent;
+            window.lightboxPreviewState.muscleRatio = initialMuscleRatio;
+            window.lightboxPreviewState.muscle = window.bodyAvatarState.muscle;
+            
+            const sliderFat = document.getElementById('lightbox-slider-fat');
+            const sliderMuscle = document.getElementById('lightbox-slider-muscle');
+            const fatValDisp = document.getElementById('lightbox-fat-val');
+            const muscleValDisp = document.getElementById('lightbox-muscle-val');
+            
+            if (sliderFat) sliderFat.value = window.lightboxPreviewState.fatPercent;
+            if (sliderMuscle) sliderMuscle.value = window.lightboxPreviewState.muscleRatio;
+            if (fatValDisp) fatValDisp.textContent = window.lightboxPreviewState.fatPercent.toFixed(1) + ' %';
+            if (muscleValDisp) muscleValDisp.textContent = window.lightboxPreviewState.muscleRatio.toFixed(2);
+          }
         });
       }
       
@@ -996,11 +1074,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (lightboxEl && lightboxEl.classList.contains('active')) {
             const lbSprite = document.getElementById('lightbox-body-sprite');
             const lbScanline = document.getElementById('lightbox-sprite-scanline');
+            const targetState = window.lightboxPreviewState || window.bodyAvatarState;
             if (lbSprite) {
-              updateSpriteView(window.bodyAvatarState, true);
+              updateSpriteView(targetState, true);
             }
             if (lbScanline) {
-              drawSpriteScanlineFrame(lbScanline, window.bodyAvatarState);
+              drawSpriteScanlineFrame(lbScanline, targetState);
             }
           }
         }

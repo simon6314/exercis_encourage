@@ -1232,6 +1232,33 @@
         </div>
       </div>
       
+      <!-- Interactive Morphing Controls -->
+      <div id="lightbox-controls" style="margin-top: 16px; width: 100%; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 12px;">
+        <div class="slider-control-group" style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
+            <span>模擬體脂率 (Body Fat):</span>
+            <span id="lightbox-fat-val" style="color: var(--accent-purple-light); font-weight: 700;">-- %</span>
+          </div>
+          <input type="range" id="lightbox-slider-fat" min="10" max="30" step="0.1" style="width: 100%; cursor: pointer;">
+        </div>
+        
+        <div class="slider-control-group" style="display: flex; flex-direction: column; gap: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
+            <span>模擬肌肉量比 (Muscle Ratio):</span>
+            <span id="lightbox-muscle-val" style="color: var(--accent-green); font-weight: 700;">--</span>
+          </div>
+          <input type="range" id="lightbox-slider-muscle" min="0.75" max="1.35" step="0.01" style="width: 100%; cursor: pointer;">
+        </div>
+        
+        <button type="button" id="lightbox-btn-reset" class="primary-btn border-glow-btn" style="width: 100%; justify-content: center; font-size: 11px; padding: 6px; border-radius: 6px; margin-top: 4px; display: flex; align-items: center; gap: 4px; cursor: pointer;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span>恢復我的體態</span>
+        </button>
+      </div>
+      
       <div style="margin-top: 16px; width: 100%; display: flex; justify-content: center; gap: 8px;">
         <button type="button" id="lightbox-btn-close" class="primary-btn green-btn" style="min-width: 100px; justify-content: center; font-size: 13px; padding: 8px 16px; border-radius: 8px; cursor: pointer;">關閉</button>
       </div>
@@ -1243,6 +1270,6 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20260624_0934"></script>
+  <script src="app.js?v=20260624_0947"></script>
 </body>
 </html>
