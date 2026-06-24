@@ -222,6 +222,9 @@ document.addEventListener('DOMContentLoaded', () => {
     inputDailyWeight: document.getElementById('input-daily-weight'),
     inputDailyMuscle: document.getElementById('input-daily-muscle'),
     inputDailyFat: document.getElementById('input-daily-fat'),
+    inputDailyWaist: document.getElementById('input-daily-waist'),
+    inputDailyChest: document.getElementById('input-daily-chest'),
+    inputDailyBiceps: document.getElementById('input-daily-biceps'),
     btnSaveDailyWeight: document.getElementById('btn-save-daily-weight'),
     dailyComparisonBox: document.getElementById('daily-comparison-box'),
     tdeeCalibratedBadge: document.getElementById('tdee-calibrated-badge'),
@@ -461,8 +464,8 @@ document.addEventListener('DOMContentLoaded', () => {
     return baseTdee + offset;
   }
 
-  // --- Body Size Estimator Formula ---
-  function calculateBodyMeasurements(gender, height, weight, fatPercent) {
+  // --- Base Body Size Estimator Formula ---
+  function calculateBaseBodyMeasurements(gender, height, weight, fatPercent) {
     const fm = weight * (fatPercent / 100);
     const ffm = weight * (1 - fatPercent / 100);
     
@@ -482,9 +485,74 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     return {
-      waist: waist.toFixed(1),
-      chest: chest.toFixed(1),
-      biceps: biceps.toFixed(1)
+      waist: waist,
+      chest: chest,
+      biceps: biceps
+    };
+  }
+
+  // --- Body Measurement Offsets Calibration ---
+  function calculateMeasurementOffsets() {
+    let sumWaistDiff = 0, countWaist = 0;
+    let sumChestDiff = 0, countChest = 0;
+    let sumBicepsDiff = 0, countBiceps = 0;
+    
+    const p = state.profile;
+    const gender = p.gender || 'male';
+    const height = parseFloat(p.height) || 175;
+    
+    // Get historical estimated weight and fatPercent trend to match with logged actual sizes
+    const history = getBodyStateHistoryUpTo(currentActiveDate);
+    const weightHistory = history.weightHistory || {};
+    const fatPercentHistory = history.fatPercentHistory || {};
+    
+    Object.keys(state.dailyLogs).forEach(date => {
+      const log = state.dailyLogs[date];
+      if (!log) return;
+      
+      const hasWaist = log.waist !== undefined && log.waist !== null && log.waist > 0;
+      const hasChest = log.chest !== undefined && log.chest !== null && log.chest > 0;
+      const hasBiceps = log.biceps !== undefined && log.biceps !== null && log.biceps > 0;
+      
+      if (hasWaist || hasChest || hasBiceps) {
+        // Fetch estimated weight and fat percent for this day
+        const wEst = weightHistory[date] || parseFloat(p.weight) || 70;
+        const fEst = fatPercentHistory[date] || parseFloat(p.fatPercent) || 20;
+        
+        // Base estimation
+        const base = calculateBaseBodyMeasurements(gender, height, wEst, fEst);
+        
+        if (hasWaist) {
+          sumWaistDiff += parseFloat(log.waist) - base.waist;
+          countWaist++;
+        }
+        if (hasChest) {
+          sumChestDiff += parseFloat(log.chest) - base.chest;
+          countChest++;
+        }
+        if (hasBiceps) {
+          sumBicepsDiff += parseFloat(log.biceps) - base.biceps;
+          countBiceps++;
+        }
+      }
+    });
+    
+    return {
+      waist: countWaist > 0 ? (sumWaistDiff / countWaist) : 0,
+      chest: countChest > 0 ? (sumChestDiff / countChest) : 0,
+      biceps: countBiceps > 0 ? (sumBicepsDiff / countBiceps) : 0
+    };
+  }
+
+  // --- Calibrated Body Size Estimator ---
+  function calculateBodyMeasurements(gender, height, weight, fatPercent) {
+    const base = calculateBaseBodyMeasurements(gender, height, weight, fatPercent);
+    const offsets = calculateMeasurementOffsets();
+    
+    return {
+      waist: (base.waist + offsets.waist).toFixed(1),
+      chest: (base.chest + offsets.chest).toFixed(1),
+      biceps: (base.biceps + offsets.biceps).toFixed(1)
     };
   }
 
@@ -2636,6 +2704,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.inputDailyFat) {
       el.inputDailyFat.value = (log.fatPercent !== undefined && log.fatPercent !== null) ? parseFloat(log.fatPercent).toFixed(1) : '';
     }
+    if (el.inputDailyWaist) {
+      el.inputDailyWaist.value = (log.waist !== undefined && log.waist !== null) ? parseFloat(log.waist).toFixed(1) : '';
+    }
+    if (el.inputDailyChest) {
+      el.inputDailyChest.value = (log.chest !== undefined && log.chest !== null) ? parseFloat(log.chest).toFixed(1) : '';
+    }
+    if (el.inputDailyBiceps) {
+      el.inputDailyBiceps.value = (log.biceps !== undefined && log.biceps !== null) ? parseFloat(log.biceps).toFixed(1) : '';
+    }
     
     const p = state.profile;
     const initialWeight = parseFloat(p.weight) || 70;
@@ -4328,6 +4405,9 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
         const weightVal = parseFloat(el.inputDailyWeight.value);
         const muscleVal = parseFloat(el.inputDailyMuscle.value);
         const fatVal = parseFloat(el.inputDailyFat.value);
+        const waistVal = parseFloat(el.inputDailyWaist.value);
+        const chestVal = parseFloat(el.inputDailyChest.value);
+        const bicepsVal = parseFloat(el.inputDailyBiceps.value);
         const log = getActiveLog();
         
         let savedMsgs = [];
@@ -4368,6 +4448,30 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
         } else {
           delete log.fatPercent;
           clearedMsgs.push('體脂');
+        }
+
+        if (!isNaN(waistVal) && waistVal > 0) {
+          log.waist = waistVal;
+          savedMsgs.push(`腰圍 ${waistVal} cm`);
+        } else {
+          delete log.waist;
+          clearedMsgs.push('腰圍');
+        }
+
+        if (!isNaN(chestVal) && chestVal > 0) {
+          log.chest = chestVal;
+          savedMsgs.push(`胸圍 ${chestVal} cm`);
+        } else {
+          delete log.chest;
+          clearedMsgs.push('胸圍');
+        }
+
+        if (!isNaN(bicepsVal) && bicepsVal > 0) {
+          log.biceps = bicepsVal;
+          savedMsgs.push(`手臂圍 ${bicepsVal} cm`);
+        } else {
+          delete log.biceps;
+          clearedMsgs.push('手臂圍');
         }
         
         saveStateToStorage();
