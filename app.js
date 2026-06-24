@@ -679,14 +679,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // 4. Update the message box based on current active date
     const today = new Date(currentActiveDate + 'T00:00:00');
     const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
-    const isWeekend = (dayOfWeek === 0 || dayOfWeek === 6);
     
     let msgHTML = '';
-    if (isWeekend) {
+    if (dayOfWeek === 0) { // Sunday - Weekly Settlement Day
       if (remaining > 0) {
-        msgHTML = `🎉 <strong>週末享用期！</strong>目前銀行餘額還剩 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>。<br>您今天可以安心享用額外美食而不影響本週減脂進度！`;
+        const fatLost = (remaining / 7700).toFixed(2);
+        msgHTML = `
+          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">🏆</div>
+          <div style="font-weight: 700; color: var(--accent-green); text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：綠色健康週！】</div>
+          恭喜！本週您的卡路里銀行完美結餘 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>，相當於順利減去約 <strong style="color: var(--accent-green);">${fatLost} kg</strong> 脂肪！做得太棒了！
+        `;
       } else if (displayDeposit === 0) {
-        msgHTML = `💡 <strong>貼心提醒：</strong>您本週週間（週一至週五）沒有累積任何卡路里赤字存款。週末建議維持正常 TDEE 攝取以避免脂肪囤積喔！`;
+        msgHTML = `
+          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">💡</div>
+          <div style="font-weight: 700; color: var(--text-secondary); text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：無赤字存款】</div>
+          您本週週間（週一至週五）沒有累積任何卡路里赤字。沒關係，調整好狀態，明天星期一重新開戶，我們再接再厲！
+        `;
+      } else {
+        msgHTML = `
+          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">✉️</div>
+          <div style="font-weight: 700; color: #ef4444; text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：銀行已超支】</div>
+          本週您的卡路里銀行透支了 <strong style="color: #ef4444;">${Math.round(-remaining)} kcal</strong>。<br>沒關係，新的一週即將開始！明天星期一我們重新開戶，調整腳步繼續加油！
+        `;
+      }
+    } else if (dayOfWeek === 6) { // Saturday
+      if (remaining > 0) {
+        msgHTML = `🎉 <strong>週末放縱餐！</strong>目前銀行餘額還剩 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>。<br>您今天可以安心享用額外美食而不影響本週減脂進度！`;
+      } else if (displayDeposit === 0) {
+        msgHTML = `💡 <strong>貼心提醒：</strong>您本週週間沒有累積任何卡路里赤字存款。週末建議維持正常 TDEE 攝取以避免脂肪囤積喔！`;
       } else {
         msgHTML = `⚠️ <strong>銀行已透支！</strong>您的週末大餐已超出本週所存的 <strong style="color: #ef4444;">${Math.round(-remaining)} kcal</strong>。<br>建議今天多散步或進行 30 分鐘有氧運動來補回赤字！`;
       }
