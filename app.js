@@ -4036,10 +4036,16 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
             const wVal = parseFloat(row.weight);
             const mVal = parseFloat(row.muscle);
             const fVal = parseFloat(row.bodyFat); // column name in Apps Script is bodyFat
+            const waistVal = parseFloat(row.waist);
+            const chestVal = parseFloat(row.chest);
+            const bicepsVal = parseFloat(row.biceps);
             
             if (!isNaN(wVal) && wVal > 0) logEntry.weight = parseFloat(wVal.toFixed(2));
             if (!isNaN(mVal) && mVal > 0) logEntry.muscle = parseFloat(mVal.toFixed(2));
             if (!isNaN(fVal) && fVal > 0) logEntry.fatPercent = parseFloat(fVal.toFixed(1));
+            if (!isNaN(waistVal) && waistVal > 0) logEntry.waist = parseFloat(waistVal.toFixed(1));
+            if (!isNaN(chestVal) && chestVal > 0) logEntry.chest = parseFloat(chestVal.toFixed(1));
+            if (!isNaN(bicepsVal) && bicepsVal > 0) logEntry.biceps = parseFloat(bicepsVal.toFixed(1));
             
             state.dailyLogs[dateStr] = logEntry;
           });
