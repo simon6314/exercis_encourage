@@ -2132,8 +2132,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: '#8b5cf6',
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.5,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 25,
             tension: 0.3,
             yAxisID: 'y-kg',
             segment: {
@@ -2149,8 +2150,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: '#10b981',
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.5,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 25,
             tension: 0.3,
             yAxisID: 'y-kg',
             segment: {
@@ -2166,8 +2168,9 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: '#ff6b00',
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.5,
-            pointRadius: 4,
-            pointHoverRadius: 6,
+            pointRadius: 5,
+            pointHoverRadius: 8,
+            pointHitRadius: 25,
             tension: 0.3,
             yAxisID: 'y-percent',
             segment: {
@@ -2179,6 +2182,10 @@ document.addEventListener('DOMContentLoaded', () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
         plugins: {
           legend: {
             position: 'top',
@@ -2255,7 +2262,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 size: 11
               },
               callback: function(value) {
-                return value + ' kg';
+                return Number(value.toFixed(2)) + ' kg';
               }
             },
             title: {
@@ -2283,7 +2290,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 size: 11
               },
               callback: function(value) {
-                return value + ' %';
+                return Number(value.toFixed(2)) + ' %';
               }
             },
             title: {
