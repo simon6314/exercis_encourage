@@ -20,7 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (w.type === 'weight') return true;
     const name = (w.name || '').toLowerCase();
     const keywords = [
-      '重訊', '重量', '阻力', '阻抗', '伏地挺身', '深蹲', '引體向上', '仰臥起坐',
+      '重訊', '重訓', '重量', '阻力', '阻抗', '伏地挺身', '深蹲', '引體向上', '仰臥起坐',
       '俯臥撐', '啞鈴', '壺鈴', '槓鈴', '推舉', '硬舉', '拉背', '臥推', '平板撐',
       '撐體', '波比跳', '核心', '力量訓練', '阻力訓練', '胸推', '划船',
       'squat', 'pushup', 'push-up', 'pullup', 'pull-up', 'dumbbell', 'barbell',
@@ -856,15 +856,13 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Body Projections Engine ---
   function updateProjections() {
     const p = state.profile;
-    const currentWeight = parseFloat(p.weight) || 70;
-    const currentMuscle = parseFloat(p.muscle) || 30;
-    const currentFatPct = parseFloat(p.fatPercent) || 20;
+    const log = getActiveLog();
+    const currentWeight = (log.weight !== undefined && log.weight !== null && parseFloat(log.weight) > 0) ? parseFloat(log.weight) : (parseFloat(p.weight) || 70);
+    const currentMuscle = (log.muscle !== undefined && log.muscle !== null && parseFloat(log.muscle) > 0) ? parseFloat(log.muscle) : (parseFloat(p.muscle) || 30);
+    const currentFatPct = (log.fatPercent !== undefined && log.fatPercent !== null && parseFloat(log.fatPercent) > 0) ? parseFloat(log.fatPercent) : (parseFloat(p.fatPercent) || 20);
     const tdee = calculateTdee();
     const restDays = parseInt(p.restDays) || 0;
     const trainingDays = Math.max(0, 7 - restDays);
-    
-    // Calculate current day's totals
-    const log = getActiveLog();
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     
@@ -957,9 +955,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sizes7 = calculateBodyMeasurements(p.gender, p.height, future7Weight, future7FatPct);
     const sizes30 = calculateBodyMeasurements(p.gender, p.height, future30Weight, future30FatPct);
     
-    const curWaist = parseFloat(curSizes.waist);
-    const curChest = parseFloat(curSizes.chest);
-    const curBiceps = parseFloat(curSizes.biceps);
+    const curWaist = (log.waist !== undefined && log.waist !== null && parseFloat(log.waist) > 0) ? parseFloat(log.waist) : parseFloat(curSizes.waist);
+    const curChest = (log.chest !== undefined && log.chest !== null && parseFloat(log.chest) > 0) ? parseFloat(log.chest) : parseFloat(curSizes.chest);
+    const curBiceps = (log.biceps !== undefined && log.biceps !== null && parseFloat(log.biceps) > 0) ? parseFloat(log.biceps) : parseFloat(curSizes.biceps);
     
     const f7Waist = parseFloat(sizes7.waist);
     const f7Chest = parseFloat(sizes7.chest);
@@ -996,24 +994,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let color = 'white';
     let arrow = '';
     
-    if (metricType === 'weight' || metricType === 'fat' || metricType === 'waist') {
-      // Weight, fat & waist reduction are healthy/positive (green), increase is negative (red)
-      if (changeValue < -0.01) {
-        color = 'var(--accent-green)';
-        arrow = ' ↓';
-      } else if (changeValue > 0.01) {
-        color = '#ef4444';
-        arrow = ' ↑';
-      }
-    } else if (metricType === 'muscle' || metricType === 'chest' || metricType === 'biceps') {
-      // Muscle, chest & biceps gain are positive (purple), loss is negative (red)
-      if (changeValue > 0.01) {
-        color = 'var(--accent-purple)';
-        arrow = ' ↑';
-      } else if (changeValue < -0.01) {
-        color = '#ef4444';
-        arrow = ' ↓';
-      }
+    if (changeValue < -0.01) {
+      color = 'var(--accent-green)';
+      arrow = ' ↓';
+    } else if (changeValue > 0.01) {
+      color = '#ef4444';
+      arrow = ' ↑';
     }
     
     const isOneDecimal = (metricType === 'fat' || metricType === 'waist' || metricType === 'chest' || metricType === 'biceps');
@@ -1075,10 +1061,10 @@ document.addEventListener('DOMContentLoaded', () => {
           description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且進行了重量訓練（<b>${weightTrainingMins} 分鐘</b>，已達標 30 分鐘），並且創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字！這在科學上是達成「增肌與減脂同時進行」的黃金組合。`;
           if (isOverweight) {
             pathTitle = '⚖️ 偏重/高體脂體態路徑';
-            pathDesc = `您的身體會優先動用體脂肪作為熱量來源，同時利用充足的蛋白質與重訊刺激修復肌肉。預期將會看到<b>體重穩健下降，身形明顯變小、變結實，線條漸趨緊緻</b>。`;
+            pathDesc = `您的身體會優先動用體脂肪作為熱量來源，同時利用充足的蛋白質與重訓刺激修復肌肉。預期將會看到<b>體重穩健下降，身形明顯變小、變結實，線條漸趨緊緻</b>。`;
           } else {
             pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
-            pathDesc = `由於您皮下脂肪較少，此赤字會促使身體精準利用微幅熱量差，配合重訊將微量脂肪轉為肌肉能量。預期<b>體重微幅下降，肌肉圍度維持甚至增加，線條感與腹肌會更加明顯</b>。`;
+            pathDesc = `由於您皮下脂肪較少，此赤字會促使身體精準利用微幅熱量差，配合重訓將微量脂肪轉為肌肉能量。預期<b>體重微幅下降，肌肉圍度維持甚至增加，線條感與腹肌會更加明顯</b>。`;
           }
         } else {
           // Clean Bulk
@@ -1091,7 +1077,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pathDesc = `由於熱量盈餘且體脂偏高，此狀態會使您的肌肉與脂肪同時緩步上升，身形會顯得更為<b>厚實與強壯</b>。但建議若以減脂為首要目標，可微調飲食將熱量降至赤字區間，以利脂肪燃燒。`;
           } else {
             pathTitle = '🏃‍♂️ 偏瘦/正常體態路徑';
-            pathDesc = `這是最適合您的路徑！熱量盈餘提供充足能量，配合蛋白質與重訊，能最大化合成肌肉。您將會看到<b>體重逐步增加、骨架與肌肉圍度顯著提升，告別乾癟身形，迎來精壯體格</b>。`;
+            pathDesc = `這是最適合您的路徑！熱量盈餘提供充足能量，配合蛋白質與重訓，能最大化合成肌肉。您將會看到<b>體重逐步增加、骨架與肌肉圍度顯著提升，告別乾癟身形，迎來精壯體格</b>。`;
           }
         }
       } else {
@@ -1128,7 +1114,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusClass = 'status-fat-gain';
         emoji = '📈';
         title = '脂肪囤積型 (Fat Accumulation)';
-        description = `您今日熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>），且蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>），同時也缺乏重訊。在沒有運動刺激、沒有充足蛋白質、卻有熱量多餘的情況下，多餘的熱量將全部以脂肪形式儲存。`;
+        description = `您今日熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>），且蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>），同時也缺乏重訓。在沒有運動刺激、沒有充足蛋白質、卻有熱量多餘的情況下，多餘的熱量將全部以脂肪形式儲存。`;
         if (isOverweight) {
           pathTitle = '⚖️ 偏重/高體脂體態路徑';
           pathDesc = `這是需要特別警惕的狀態。多餘的熱量會快速轉化為脂肪，堆積在腹部、臀部與大腿等脂肪易囤積部位，導致**體重快速上升，身形明顯橫向發展，體脂率攀升**。`;
@@ -2761,7 +2747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset AI coaching advice text if we switched to a different active date
         if (window.lastAiCoachFeedbackDate !== currentActiveDate) {
           if (el.aiCoachDeepResult) {
-            el.aiCoachDeepResult.innerHTML = '點擊上方「即刻點評」按鈕，讓 AI 教練針對您今日的重訊、營養平衡與體態進行精準診斷...';
+            el.aiCoachDeepResult.innerHTML = '點擊上方「即刻點評」按鈕，讓 AI 教練針對您今日的重訓、營養平衡與體態進行精準診斷...';
           }
         }
         
@@ -2779,7 +2765,7 @@ document.addEventListener('DOMContentLoaded', () => {
           } else if (dW < -0.2) {
             dWColor = 'var(--accent-green)';
           } else {
-            dWColor = '#f59e0b';
+            dWColor = '#ef4444';
           }
         }
         
@@ -2790,7 +2776,7 @@ document.addEventListener('DOMContentLoaded', () => {
           dMText = `${dM >= 0 ? '+' : ''}${dM.toFixed(2)} kg`;
           if (Math.abs(dM) <= 0.1) {
             dMColor = 'var(--text-secondary)';
-          } else if (dM > 0.1) {
+          } else if (dM < -0.1) {
             dMColor = 'var(--accent-green)';
           } else {
             dMColor = '#ef4444';
@@ -3181,9 +3167,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let proteinMsg = '';
         if (stats.avgMuscleChangeProteinHigh > stats.avgMuscleChangeProteinLow) {
           const diff = stats.avgMuscleChangeProteinHigh - stats.avgMuscleChangeProteinLow;
-          proteinMsg = `💡 分析指出：當您的<b>蛋白質攝取達標時</b>，平均每日肌肉量變化比未達標時<b>多出 ${diff.toFixed(3)} kg</b>。這證明充足的蛋白質對於肌肉合成/保留有顯著成效！`;
+          proteinMsg = `💡 基於 <b>${stats.proteinHighDays}</b> 天達標與 <b>${stats.proteinLowDays}</b> 天未達標紀錄，分析指出：當您的<b>蛋白質攝取達標時</b>，平均每日肌肉量變化比未達標時<b>多出 ${diff.toFixed(3)} kg</b>。這證明充足的蛋白質對於肌肉合成/保留有顯著成效！`;
         } else if (stats.proteinHighDays > 0 && stats.proteinLowDays > 0) {
-          proteinMsg = `💡 分析指出：蛋白質達標與否對您的肌肉量沒有明顯的淨差。建議確保重訊強度，以更好地刺激肌肉合成。`;
+          proteinMsg = `💡 基於 <b>${stats.proteinHighDays}</b> 天達標與 <b>${stats.proteinLowDays}</b> 天未達標紀錄，分析指出：蛋白質達標與否對您的肌肉量沒有明顯的淨差。建議確保重訓強度，以更好地刺激肌肉合成。`;
         } else {
           proteinMsg = `💡 數據累積中。目前記錄了 ${stats.proteinHighDays} 天達標與 ${stats.proteinLowDays} 天未達標。`;
         }
@@ -3213,9 +3199,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let workoutMsg = '';
         if (stats.avgFatPctChangeWorkoutYes < stats.avgFatPctChangeWorkoutNo) {
           const diff = Math.abs(stats.avgFatPctChangeWorkoutYes - stats.avgFatPctChangeWorkoutNo);
-          workoutMsg = `💡 分析指出：當您進行了 <b>30 分鐘以上阻力訓練時</b>，體脂率平均每日下降速率比沒有重訊時<b>快了 ${diff.toFixed(2)}%</b>。阻力訓練顯著提升了您的脂肪燃燒率！`;
+          workoutMsg = `💡 基於 <b>${stats.workoutYesDays}</b> 天阻力訓練與 <b>${stats.workoutNoDays}</b> 天非阻力訓練紀錄，分析指出：當您進行了 <b>30 分鐘以上阻力訓練時</b>，體脂率平均每日下降速率比沒有重訓時<b>快了 ${diff.toFixed(2)}%</b>。阻力訓練顯著提升了您的脂肪燃燒率！`;
         } else if (stats.workoutYesDays > 0 && stats.workoutNoDays > 0) {
-          workoutMsg = `💡 分析指出：阻力訓練日與非訓練日的體脂率變化接近。建議配合卡路里赤字，以發揮最大的阻力訓練減脂優勢。`;
+          workoutMsg = `💡 基於 <b>${stats.workoutYesDays}</b> 天阻力訓練與 <b>${stats.workoutNoDays}</b> 天非阻力訓練紀錄，分析指出：阻力訓練日與非訓練日的體脂率變化接近。建議配合卡路里赤字，以發揮最大的阻力訓練減脂優勢。`;
         } else {
           workoutMsg = `💡 數據累積中。目前記錄了 ${stats.workoutYesDays} 天阻力訓練與 ${stats.workoutNoDays} 天非阻力訓練。`;
         }
@@ -3934,6 +3920,7 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
 
   // --- Motivation Engine Quotes & Dynamic feedback ---
   function updateMotivationWidget() {
+    if (!el.motivateQuoteText || !el.motivateQuoteAuthor) return;
     // Pick daily quote randomly
     const quoteIndex = Math.floor(Math.random() * MOTIVATION_QUOTES.length);
     const quote = MOTIVATION_QUOTES[quoteIndex];
@@ -3941,66 +3928,71 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     el.motivateQuoteAuthor.textContent = `— ${quote.author}`;
   }
 
-  el.btnGetSpark.addEventListener('click', () => {
-    // Calculate today's status
-    const log = getActiveLog();
-    const tdee = calculateTdee();
-    const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const netDeficit = (tdee + workoutOut) - totalIn;
-    
-    const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
-    const targetProtein = parseFloat(state.profile.targetProtein) || 120;
-    
-    const workoutCount = log.workouts.length;
-    
-    // Generate specialized encouraging words
-    let dynamicWords = "";
-    if (workoutCount > 0 && netDeficit > 200 && totalProtein >= targetProtein * 0.8) {
-      dynamicWords = `太神了！今天累積了 ${workoutCount} 次運動，創造了高達 ${Math.round(netDeficit)} 大卡的熱量赤字，而且蛋白質補好補滿！你的肌肉正在瘋狂生長，脂肪也正在融化！繼續前進，你是無敵的！🔥`;
-    } else if (workoutCount > 0) {
-      const mins = log.workouts.reduce((sum, w) => sum + w.duration, 0);
-      dynamicWords = `超讚的！你今天抽空運動了 ${mins} 分鐘，成功消耗 ${Math.round(workoutOut)} 大卡！每一次流汗都是肌肉的淬煉，身體絕對會用完美的體態回報你，堅持住！💪`;
-    } else if (netDeficit > 300) {
-      dynamicWords = `飲食控制一級棒！今天成功的管住嘴，創造了 ${Math.round(netDeficit)} 大卡的卡路里赤字。體脂肪正在被提取燃燒，維持這個紀律，未來7天的目標近在咫尺！✨`;
-    } else if (totalProtein >= targetProtein) {
-      dynamicWords = `營養大師！你今天攝取了 ${totalProtein.toFixed(1)}g 的蛋白質，完美達成增肌所需的原料供給。肌肉正在快速修復，晚上睡個好覺，明天更有爆發力！🍗`;
-    } else {
-      dynamicWords = `每一天都是新的起點！即使今天還沒開始動、或多吃了一點，都不要有罪惡感。踏實記錄就是成功的開始，現在就去喝杯水、做10個伏地挺身，開啟你的健康之源！🌟`;
-    }
-    
-    el.motivateQuoteText.textContent = dynamicWords;
-    el.motivateQuoteAuthor.textContent = "— FitSpark 智慧語音督導員";
-    
-    // Trigger effects
-    triggerConfetti();
-    showToast('獲得一次動力補給！', 'success');
-  });
-
-  el.btnSpeakQuote.addEventListener('click', () => {
-    const textToSpeak = el.motivateQuoteText.textContent;
-    if ('speechSynthesis' in window) {
-      // Cancel active voice first
-      window.speechSynthesis.cancel();
+  if (el.btnGetSpark) {
+    el.btnGetSpark.addEventListener('click', () => {
+      // Calculate today's status
+      const log = getActiveLog();
+      const tdee = calculateTdee();
+      const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      const netDeficit = (tdee + workoutOut) - totalIn;
       
-      const utterance = new SpeechSynthesisUtterance(textToSpeak);
-      utterance.lang = 'zh-TW';
-      utterance.rate = 1.0;
-      utterance.pitch = 1.0;
+      const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+      const targetProtein = parseFloat(state.profile.targetProtein) || 120;
       
-      // Attempt to find Taiwan female voice for friendly encourage style
-      const voices = window.speechSynthesis.getVoices();
-      const mandarinVoice = voices.find(v => v.lang.includes('ZH-TW') || v.lang.includes('zh-TW'));
-      if (mandarinVoice) {
-        utterance.voice = mandarinVoice;
+      const workoutCount = log.workouts.length;
+      
+      // Generate specialized encouraging words
+      let dynamicWords = "";
+      if (workoutCount > 0 && netDeficit > 200 && totalProtein >= targetProtein * 0.8) {
+        dynamicWords = `太神了！今天累積了 ${workoutCount} 次運動，創造了高達 ${Math.round(netDeficit)} 大卡的熱量赤字，而且蛋白質補好補滿！你的肌肉正在瘋狂生長，脂肪也正在融化！繼續前進，你是無敵的！🔥`;
+      } else if (workoutCount > 0) {
+        const mins = log.workouts.reduce((sum, w) => sum + w.duration, 0);
+        dynamicWords = `超讚的！你今天抽空運動了 ${mins} 分鐘，成功消耗 ${Math.round(workoutOut)} 大卡！每一次流汗都是肌肉的淬煉，身體絕對會用完美的體態回報你，堅持住！💪`;
+      } else if (netDeficit > 300) {
+        dynamicWords = `飲食控制一級棒！今天成功的管住嘴，創造了 ${Math.round(netDeficit)} 大卡的卡路里赤字。體脂肪正在被提取燃燒，維持這個紀律，未來7天的目標近在咫尺！✨`;
+      } else if (totalProtein >= targetProtein) {
+        dynamicWords = `營養大師！你今天攝取了 ${totalProtein.toFixed(1)}g 的蛋白質，完美達成增肌所需的原料供給。肌肉正在快速修復，晚上睡個好覺，明天更有爆發力！🍗`;
+      } else {
+        dynamicWords = `每一天都是新的起點！即使今天還沒開始動、或多吃了一點，都不要有罪惡感。踏實記錄就是成功的開始，現在就去喝杯水、做10個伏地挺身，開啟你的健康之源！🌟`;
       }
       
-      window.speechSynthesis.speak(utterance);
-      showToast('語音朗讀中...', 'info');
-    } else {
-      showToast('您的瀏覽器不支援語音合成朗讀功能。', 'error');
-    }
-  });
+      if (el.motivateQuoteText) el.motivateQuoteText.textContent = dynamicWords;
+      if (el.motivateQuoteAuthor) el.motivateQuoteAuthor.textContent = "— FitSpark 智慧語音督導員";
+      
+      // Trigger effects
+      triggerConfetti();
+      showToast('獲得一次動力補給！', 'success');
+    });
+  }
+
+  if (el.btnSpeakQuote) {
+    el.btnSpeakQuote.addEventListener('click', () => {
+      if (!el.motivateQuoteText) return;
+      const textToSpeak = el.motivateQuoteText.textContent;
+      if ('speechSynthesis' in window) {
+        // Cancel active voice first
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = 'zh-TW';
+        utterance.rate = 1.0;
+        utterance.pitch = 1.0;
+        
+        // Attempt to find Taiwan female voice for friendly encourage style
+        const voices = window.speechSynthesis.getVoices();
+        const mandarinVoice = voices.find(v => v.lang.includes('ZH-TW') || v.lang.includes('zh-TW'));
+        if (mandarinVoice) {
+          utterance.voice = mandarinVoice;
+        }
+        
+        window.speechSynthesis.speak(utterance);
+        showToast('語音朗讀中...', 'info');
+      } else {
+        showToast('您的瀏覽器不支援語音合成朗讀功能。', 'error');
+      }
+    });
+  }
 
   // Ensure voices are loaded for SpeechSynthesis
   if ('speechSynthesis' in window && window.speechSynthesis.onvoiceschanged !== undefined) {
