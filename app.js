@@ -91,7 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
     totalCalOut: document.getElementById('total-cal-out'),
     tdeeDisplay: document.getElementById('tdee-val-display'),
     ringProgressIn: document.getElementById('ring-progress-in'),
+    ringProgressInOverflow: document.getElementById('ring-progress-in-overflow'),
     ringProgressOut: document.getElementById('ring-progress-out'),
+    ringProgressOutOverflow: document.getElementById('ring-progress-out-overflow'),
     
     // Macros
     macroProteinRatio: document.getElementById('macro-protein-ratio'),
@@ -2968,16 +2970,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // Animate SVG Calorie rings
     // Target Intake Progress (Outer ring, r=50, circumference = 314)
     const targetIn = parseFloat(p.targetCalories) || 2000;
-    const progressInPercent = Math.min(1.2, totalIn / targetIn);
-    const offsetIn = 314 - (314 * progressInPercent);
+    const progressInPercent = Math.min(2.0, totalIn / targetIn);
+    
+    let offsetIn;
+    let offsetInOverflow;
+    if (progressInPercent <= 1.0) {
+      offsetIn = 314 - (314 * progressInPercent);
+      offsetInOverflow = 314; // Hidden (fully offset)
+    } else {
+      offsetIn = 0; // 100% full
+      offsetInOverflow = 314 - (314 * (progressInPercent - 1.0));
+    }
     el.ringProgressIn.style.strokeDashoffset = offsetIn;
+    if (el.ringProgressInOverflow) {
+      el.ringProgressInOverflow.style.strokeDashoffset = offsetInOverflow;
+    }
     
     // Workout Burn Progress (Inner ring, r=42, circumference = 264)
     // We assume standard active burn target of 400 kcal
     const targetActiveOut = 400;
-    const progressOutPercent = Math.min(1.2, totalOut / targetActiveOut);
-    const offsetOut = 264 - (264 * progressOutPercent);
+    const progressOutPercent = Math.min(2.0, totalOut / targetActiveOut);
+    
+    let offsetOut;
+    let offsetOutOverflow;
+    if (progressOutPercent <= 1.0) {
+      offsetOut = 264 - (264 * progressOutPercent);
+      offsetOutOverflow = 264; // Hidden (fully offset)
+    } else {
+      offsetOut = 0; // 100% full
+      offsetOutOverflow = 264 - (264 * (progressOutPercent - 1.0));
+    }
     el.ringProgressOut.style.strokeDashoffset = offsetOut;
+    if (el.ringProgressOutOverflow) {
+      el.ringProgressOutOverflow.style.strokeDashoffset = offsetOutOverflow;
+    }
     
     // 4. Macro progress bars
     const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);

@@ -374,6 +374,7 @@ a:hover {
   width: 100%;
   height: 100%;
   transform: rotate(-90deg);
+  overflow: visible;
 }
 .ring-bg {
   fill: none;
@@ -389,9 +390,19 @@ a:hover {
   stroke: url(#grad-ring-in);
   stroke-width: 8;
 }
+.ring-in-overflow {
+  stroke: url(#grad-ring-in);
+  stroke-width: 8;
+  filter: url(#ring-shadow);
+}
 .ring-out {
   stroke: url(#grad-ring-out);
   stroke-width: 6;
+}
+.ring-out-overflow {
+  stroke: url(#grad-ring-out);
+  stroke-width: 6;
+  filter: url(#ring-shadow);
 }
 .ring-text {
   position: absolute;
@@ -2185,4 +2196,69 @@ a:hover {
   color: white !important;
   transform: scale(1.1);
 }
+
+/* --- Lightbox Range Slider Custom Styling --- */
+#lightbox-controls input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  outline: none;
+  border: none;
+  margin: 8px 0;
+  transition: background 0.3s;
+}
+
+#lightbox-controls input[type="range"]:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Chrome/Safari/Webkit range thumb */
+#lightbox-controls input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-purple-light);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent-purple-glow);
+  border: 2px solid #ffffff;
+  transition: transform 0.1s, background 0.3s;
+}
+
+#lightbox-controls input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  background: #ffffff;
+}
+
+/* Firefox range thumb */
+#lightbox-controls input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-purple-light);
+  cursor: pointer;
+  box-shadow: 0 0 8px var(--accent-purple-glow);
+  border: 2px solid #ffffff;
+  transition: transform 0.1s, background 0.3s;
+}
+
+#lightbox-controls input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  background: #ffffff;
+}
+
+/* Specifically style the muscle slider to use green accent */
+#lightbox-slider-muscle::-webkit-slider-thumb {
+  background: var(--accent-green) !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8) !important;
+}
+#lightbox-slider-muscle::-moz-range-thumb {
+  background: var(--accent-green) !important;
+  box-shadow: 0 0 8px rgba(16, 185, 129, 0.8) !important;
+}
+
 
