@@ -2678,9 +2678,15 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Render current estimated sizes
     const sizes = calculateBodyMeasurements(state.profile.gender, state.profile.height, est.weight, est.fatPercent);
-    if (el.estWaistVal) el.estWaistVal.textContent = `${sizes.waist} cm`;
-    if (el.estChestVal) el.estChestVal.textContent = `${sizes.chest} cm`;
-    if (el.estBicepsVal) el.estBicepsVal.textContent = `${sizes.biceps} cm`;
+    const offsets = calculateMeasurementOffsets();
+    const formatOffsetSpan = (val) => {
+      if (val === 0) return '';
+      const sign = val >= 0 ? '+' : '';
+      return ` <span style="font-size: 10px; font-weight: 500; opacity: 0.8; white-space: nowrap; color: var(--text-secondary);">(${sign}${val.toFixed(1)}cm)</span>`;
+    };
+    if (el.estWaistVal) el.estWaistVal.innerHTML = `${sizes.waist} cm${formatOffsetSpan(offsets.waist)}`;
+    if (el.estChestVal) el.estChestVal.innerHTML = `${sizes.chest} cm${formatOffsetSpan(offsets.chest)}`;
+    if (el.estBicepsVal) el.estBicepsVal.innerHTML = `${sizes.biceps} cm${formatOffsetSpan(offsets.biceps)}`;
     
     const log = getActiveLog();
     if (el.inputDailyWeight) {
