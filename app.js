@@ -2977,9 +2977,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressInPercent <= 1.0) {
       offsetIn = 314 - (314 * progressInPercent);
       offsetInOverflow = 314; // Hidden (fully offset)
+      if (el.ringProgressInOverflow) {
+        el.ringProgressInOverflow.style.display = 'none';
+      }
     } else {
       offsetIn = 0; // 100% full
       offsetInOverflow = 314 - (314 * (progressInPercent - 1.0));
+      if (el.ringProgressInOverflow) {
+        el.ringProgressInOverflow.style.display = 'block';
+      }
     }
     el.ringProgressIn.style.strokeDashoffset = offsetIn;
     if (el.ringProgressInOverflow) {
@@ -2996,9 +3002,15 @@ document.addEventListener('DOMContentLoaded', () => {
     if (progressOutPercent <= 1.0) {
       offsetOut = 264 - (264 * progressOutPercent);
       offsetOutOverflow = 264; // Hidden (fully offset)
+      if (el.ringProgressOutOverflow) {
+        el.ringProgressOutOverflow.style.display = 'none';
+      }
     } else {
       offsetOut = 0; // 100% full
       offsetOutOverflow = 264 - (264 * (progressOutPercent - 1.0));
+      if (el.ringProgressOutOverflow) {
+        el.ringProgressOutOverflow.style.display = 'block';
+      }
     }
     el.ringProgressOut.style.strokeDashoffset = offsetOut;
     if (el.ringProgressOutOverflow) {
