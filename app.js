@@ -2980,9 +2980,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el.ringProgressInOverflow) {
         el.ringProgressInOverflow.style.display = 'none';
       }
+      if (progressInPercent === 0) {
+        el.ringProgressIn.style.display = 'none';
+      } else {
+        el.ringProgressIn.style.display = 'block';
+      }
     } else {
       offsetIn = 0; // 100% full
       offsetInOverflow = 314 - (314 * (progressInPercent - 1.0));
+      el.ringProgressIn.style.display = 'block';
       if (el.ringProgressInOverflow) {
         el.ringProgressInOverflow.style.display = 'block';
       }
@@ -3005,9 +3011,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (el.ringProgressOutOverflow) {
         el.ringProgressOutOverflow.style.display = 'none';
       }
+      if (progressOutPercent === 0) {
+        el.ringProgressOut.style.display = 'none';
+      } else {
+        el.ringProgressOut.style.display = 'block';
+      }
     } else {
       offsetOut = 0; // 100% full
       offsetOutOverflow = 264 - (264 * (progressOutPercent - 1.0));
+      el.ringProgressOut.style.display = 'block';
       if (el.ringProgressOutOverflow) {
         el.ringProgressOutOverflow.style.display = 'block';
       }
