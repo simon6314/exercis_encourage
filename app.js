@@ -862,9 +862,54 @@ document.addEventListener('DOMContentLoaded', () => {
   function updateProjections() {
     const p = state.profile;
     const log = getActiveLog();
-    const currentWeight = (log.weight !== undefined && log.weight !== null && parseFloat(log.weight) > 0) ? parseFloat(log.weight) : (parseFloat(p.weight) || 70);
-    const currentMuscle = (log.muscle !== undefined && log.muscle !== null && parseFloat(log.muscle) > 0) ? parseFloat(log.muscle) : (parseFloat(p.muscle) || 30);
-    const currentFatPct = (log.fatPercent !== undefined && log.fatPercent !== null && parseFloat(log.fatPercent) > 0) ? parseFloat(log.fatPercent) : (parseFloat(p.fatPercent) || 20);
+    
+    // Calculate 7-day average starting values for weight, muscle, fatPercent, and body measurements (Scheme A)
+    let weightSum = 0, weightCount = 0;
+    let muscleSum = 0, muscleCount = 0;
+    let fatSum = 0, fatCount = 0;
+    let waistSum = 0, waistCount = 0;
+    let chestSum = 0, chestCount = 0;
+    let bicepsSum = 0, bicepsCount = 0;
+    
+    const dActive = new Date(currentActiveDate + 'T00:00:00');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(dActive);
+      d.setDate(dActive.getDate() - i);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      
+      const entry = state.dailyLogs[dateStr];
+      if (entry) {
+        if (entry.weight !== undefined && entry.weight !== null && entry.weight > 0) {
+          weightSum += parseFloat(entry.weight);
+          weightCount++;
+        }
+        if (entry.muscle !== undefined && entry.muscle !== null && entry.muscle > 0) {
+          muscleSum += parseFloat(entry.muscle);
+          muscleCount++;
+        }
+        if (entry.fatPercent !== undefined && entry.fatPercent !== null && entry.fatPercent > 0) {
+          fatSum += parseFloat(entry.fatPercent);
+          fatCount++;
+        }
+        if (entry.waist !== undefined && entry.waist !== null && entry.waist > 0) {
+          waistSum += parseFloat(entry.waist);
+          waistCount++;
+        }
+        if (entry.chest !== undefined && entry.chest !== null && entry.chest > 0) {
+          chestSum += parseFloat(entry.chest);
+          chestCount++;
+        }
+        if (entry.biceps !== undefined && entry.biceps !== null && entry.biceps > 0) {
+          bicepsSum += parseFloat(entry.biceps);
+          bicepsCount++;
+        }
+      }
+    }
+    
+    const currentWeight = weightCount > 0 ? (weightSum / weightCount) : (parseFloat(p.weight) || 70);
+    const currentMuscle = muscleCount > 0 ? (muscleSum / muscleCount) : (parseFloat(p.muscle) || 30);
+    const currentFatPct = fatCount > 0 ? (fatSum / fatCount) : (parseFloat(p.fatPercent) || 20);
     const tdee = calculateTdee();
     const restDays = parseInt(p.restDays) || 0;
     const trainingDays = Math.max(0, 7 - restDays);
@@ -996,9 +1041,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const sizes7 = calculateBodyMeasurements(p.gender, p.height, future7Weight, future7FatPct);
     const sizes30 = calculateBodyMeasurements(p.gender, p.height, future30Weight, future30FatPct);
     
-    const curWaist = (log.waist !== undefined && log.waist !== null && parseFloat(log.waist) > 0) ? parseFloat(log.waist) : parseFloat(curSizes.waist);
-    const curChest = (log.chest !== undefined && log.chest !== null && parseFloat(log.chest) > 0) ? parseFloat(log.chest) : parseFloat(curSizes.chest);
-    const curBiceps = (log.biceps !== undefined && log.biceps !== null && parseFloat(log.biceps) > 0) ? parseFloat(log.biceps) : parseFloat(curSizes.biceps);
+    const curWaist = waistCount > 0 ? (waistSum / waistCount) : parseFloat(curSizes.waist);
+    const curChest = chestCount > 0 ? (chestSum / chestCount) : parseFloat(curSizes.chest);
+    const curBiceps = bicepsCount > 0 ? (bicepsSum / bicepsCount) : parseFloat(curSizes.biceps);
     
     const f7Waist = parseFloat(sizes7.waist);
     const f7Chest = parseFloat(sizes7.chest);
