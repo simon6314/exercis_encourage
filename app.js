@@ -929,6 +929,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let sum7WorkoutMins = 0;
     let sum7Protein = 0;
     let sum7WeightTrainingMins = 0;
+    let loggedDietDays = 0;
     
     for (let i = 0; i < 7; i++) {
       const d = new Date(dActive);
@@ -939,29 +940,29 @@ document.addEventListener('DOMContentLoaded', () => {
       const entry = state.dailyLogs[dateStr];
       if (entry) {
         const hasDiet = entry.diet && entry.diet.length > 0;
-        const dayIn = hasDiet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : tdee;
+        if (hasDiet) {
+          sum7In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          sum7Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+          loggedDietDays++;
+        }
+        
         const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const dayProtein = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0) : 0;
         const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         
-        sum7In += dayIn;
         sum7WorkoutOut += dayWorkout;
         sum7WorkoutMins += dayMins;
-        sum7Protein += dayProtein;
         sum7WeightTrainingMins += dayWeightTraining;
-      } else {
-        sum7In += tdee;
       }
     }
     
-    const avgDailyIn = sum7In / 7;
+    const avgDailyIn = loggedDietDays > 0 ? (sum7In / loggedDietDays) : tdee;
     const avgDailyWorkoutOutRaw = sum7WorkoutOut / 7;
     const avgDailyWorkoutMins = sum7WorkoutMins / 7;
     const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
     const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
     
-    const avgDailyProtein = sum7Protein / 7;
+    const avgDailyProtein = loggedDietDays > 0 ? (sum7Protein / loggedDietDays) : 0;
     const targetProtein = parseFloat(p.targetProtein) || 120;
     const hasEnoughProtein = avgDailyProtein >= (targetProtein * 0.8);
     
