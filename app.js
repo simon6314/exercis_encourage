@@ -425,7 +425,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const bmr = calculateBmr();
     const activityFactor = parseFloat(state.profile.activity) || 1.2;
     const baseTdee = Math.round(bmr * activityFactor);
-    let loggedDaysCount = 0;
 
     for (let i = 0; i < diffDays; i++) {
       const d = new Date(dStart);
@@ -435,13 +434,13 @@ document.addEventListener('DOMContentLoaded', () => {
       
       const entry = state.dailyLogs[dateStr];
       if (entry) {
-        const dayIn = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const hasDietLogged = entry.diet && entry.diet.length > 0;
+        const dayIn = hasDietLogged ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : baseTdee;
         const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         
         totalIn += dayIn;
         totalWorkoutOut += dayWorkoutOut;
         baseTdeeSum += baseTdee;
-        loggedDaysCount++;
       } else {
         totalIn += baseTdee;
         baseTdeeSum += baseTdee;
@@ -451,7 +450,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const calorieDifference = totalIn - baseTdeeSum - totalWorkoutOut;
     const expectedWeightChangeCal = actualWeightChange * 7700;
     
-    let offset = (calorieDifference - expectedWeightChangeCal) / (loggedDaysCount || 1);
+    let offset = (calorieDifference - expectedWeightChangeCal) / (diffDays || 1);
 
     if (isNaN(offset)) return 0;
     offset = Math.max(-500, Math.min(500, offset));
@@ -740,8 +739,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 1. Calculate Monday-Friday deficits
     weekDays.forEach(d => {
       const entry = state.dailyLogs[d];
-      if (entry) {
-        const intake = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+      if (entry && entry.diet && entry.diet.length > 0) {
+        const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         // Deficit = (TDEE + Workout) - Intake
         const dailyDeficit = (tdee + workout) - intake;
@@ -756,8 +755,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
     weekendDays.forEach(d => {
       const entry = state.dailyLogs[d];
-      if (entry) {
-        const intake = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+      if (entry && entry.diet && entry.diet.length > 0) {
+        const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dailySurplus = intake - (tdee + workout);
         if (dailySurplus > 0) {
