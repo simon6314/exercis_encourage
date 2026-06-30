@@ -930,7 +930,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let sum7Protein = 0;
     let sum7WeightTrainingMins = 0;
     
-    const dActive = new Date(currentActiveDate + 'T00:00:00');
     for (let i = 0; i < 7; i++) {
       const d = new Date(dActive);
       d.setDate(dActive.getDate() - i);
