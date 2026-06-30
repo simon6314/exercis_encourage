@@ -437,9 +437,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasDietLogged = entry.diet && entry.diet.length > 0;
         const dayIn = hasDietLogged ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : baseTdee;
         const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dayWorkoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const dayDoubleCounted = Math.round((baseTdee / 1440) * dayWorkoutMins);
         
         totalIn += dayIn;
-        totalWorkoutOut += dayWorkoutOut;
+        totalWorkoutOut += Math.max(0, dayWorkoutOut - dayDoubleCounted);
         baseTdeeSum += baseTdee;
       } else {
         totalIn += baseTdee;
@@ -742,8 +744,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (entry && entry.diet && entry.diet.length > 0) {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        // Deficit = (TDEE + Workout) - Intake
-        const dailyDeficit = (tdee + workout) - intake;
+        const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+        // Deficit = (TDEE + Workout - DoubleCounted) - Intake
+        const dailyDeficit = (tdee + workout - doubleCounted) - intake;
         totalDeficit += dailyDeficit;
       }
     });
@@ -758,7 +762,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (entry && entry.diet && entry.diet.length > 0) {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        const dailySurplus = intake - (tdee + workout);
+        const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+        const dailySurplus = intake - (tdee + workout - doubleCounted);
         if (dailySurplus > 0) {
           weekendSurplus += dailySurplus;
         }
@@ -862,28 +868,64 @@ document.addEventListener('DOMContentLoaded', () => {
     const tdee = calculateTdee();
     const restDays = parseInt(p.restDays) || 0;
     const trainingDays = Math.max(0, 7 - restDays);
+    // Today's single day stats for UI display (with double counting adjusted)
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+    const workoutMins = log.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
+    const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+    const totalOut = tdee + workoutOut - doubleCounted;
+    const netDeficit = totalOut - totalIn; 
     
-    // Account for rest days in weekly deficit
-    // Workout burn only happens on training days (7 - restDays)
-    const avgDailyWorkoutOut = (workoutOut * trainingDays) / 7;
-    const totalOut = tdee + workoutOut;
-    const netDeficit = totalOut - totalIn; // Calories Out > Calories In is a positive deficit
-    
-    // Protein target status (sufficient protein defined as >= 80% of target)
     const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
-    const targetProtein = parseFloat(p.targetProtein) || 120;
-    const hasEnoughProtein = totalProtein >= (targetProtein * 0.8);
+
+    // Calculate 7-day average data up to currentActiveDate for stable projections
+    let sum7In = 0;
+    let sum7WorkoutOut = 0;
+    let sum7WorkoutMins = 0;
+    let sum7Protein = 0;
+    let sum7WeightTrainingMins = 0;
     
-    // Weight training check (>= 30 minutes of strength training)
-    const weightTrainingMins = log.workouts
-      .filter(isWeightTraining)
-      .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
-    const hasWeightTraining = weightTrainingMins >= 30;
+    const dActive = new Date(currentActiveDate + 'T00:00:00');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(dActive);
+      d.setDate(dActive.getDate() - i);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      
+      const entry = state.dailyLogs[dateStr];
+      if (entry) {
+        const hasDiet = entry.diet && entry.diet.length > 0;
+        const dayIn = hasDiet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : tdee;
+        const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const dayProtein = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0) : 0;
+        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        
+        sum7In += dayIn;
+        sum7WorkoutOut += dayWorkout;
+        sum7WorkoutMins += dayMins;
+        sum7Protein += dayProtein;
+        sum7WeightTrainingMins += dayWeightTraining;
+      } else {
+        sum7In += tdee;
+      }
+    }
+    
+    const avgDailyIn = sum7In / 7;
+    const avgDailyWorkoutOutRaw = sum7WorkoutOut / 7;
+    const avgDailyWorkoutMins = sum7WorkoutMins / 7;
+    const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
+    const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
+    
+    const avgDailyProtein = sum7Protein / 7;
+    const targetProtein = parseFloat(p.targetProtein) || 120;
+    const hasEnoughProtein = avgDailyProtein >= (targetProtein * 0.8);
+    
+    // Weight training check: total strength training minutes over the last 7 days is >= 90 mins (equivalent to 3 times a week, 30 mins each)
+    const hasWeightTraining = sum7WeightTrainingMins >= 90;
     
     // Average weekly daily balance (intake - total output)
-    const avgDailyBalance = totalIn - (tdee + avgDailyWorkoutOut);
+    const avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
     
     // 7 Days Calculations
     const change7Weight = (avgDailyBalance * 7) / 7700; // 7,700 kcal = 1kg body weight
@@ -986,7 +1028,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el.proteinTargetStatus.style.color = hasEnoughProtein ? 'var(--accent-green)' : 'var(--accent-yellow)';
     
     // Update Dynamic Projection Status UI card based on today's status
-    updateDynamicProjectionStatusUI(netDeficit, hasEnoughProtein, hasWeightTraining, weightTrainingMins, totalProtein, targetProtein);
+    updateDynamicProjectionStatusUI(-avgDailyBalance, hasEnoughProtein, hasWeightTraining, sum7WeightTrainingMins, avgDailyProtein, targetProtein);
   }
 
   function formatProjText(element, changeValue, metricType, futureValue, unit, currentValue) {
@@ -1057,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', () => {
           statusClass = 'status-recomp';
           emoji = '🔥';
           title = '增肌減脂型 (Body Recomposition)';
-          description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且進行了重量訓練（<b>${weightTrainingMins} 分鐘</b>，已達標 30 分鐘），並且創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字！這在科學上是達成「增肌與減脂同時進行」的黃金組合。`;
+          description = `您近期（過去 7 天日均）攝取了足夠的蛋白質（日均 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且有進行阻力訓練（週累計 <b>${weightTrainingMins} 分鐘</b>，已達標週目標 90 分鐘），並且日均創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字！這在科學上是達成「增肌與減脂同時進行」的黃金組合。`;
           if (isOverweight) {
             pathTitle = '⚖️ 偏重/高體脂體態路徑';
             pathDesc = `您的身體會優先動用體脂肪作為熱量來源，同時利用充足的蛋白質與重訓刺激修復肌肉。預期將會看到<b>體重穩健下降，身形明顯變小、變結實，線條漸趨緊緻</b>。`;
@@ -1070,7 +1112,7 @@ document.addEventListener('DOMContentLoaded', () => {
           statusClass = 'status-clean-bulk';
           emoji = '💪';
           title = '乾淨增肌型 (Clean Bulk)';
-          description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且進行了重量訓練（<b>${weightTrainingMins} 分鐘</b>，已達標 30 分鐘），熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>）。這是構建純肌肉組織最理想的生理環境。`;
+          description = `您近期（過去 7 天日均）攝取了足夠的蛋白質（日均 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），且有進行阻力訓練（週累計 <b>${weightTrainingMins} 分鐘</b>，已達標週目標 90 分鐘），熱量處於平衡或盈餘狀態（日均盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>）。這是構建純肌肉組織最理想的生理環境。`;
           if (isOverweight) {
             pathTitle = '⚖️ 偏重/高體脂體態路徑';
             pathDesc = `由於熱量盈餘且體脂偏高，此狀態會使您的肌肉與脂肪同時緩步上升，身形會顯得更為<b>厚實與強壯</b>。但建議若以減脂為首要目標，可微調飲食將熱量降至赤字區間，以利脂肪燃燒。`;
@@ -1084,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusClass = 'status-maintenance';
         emoji = '🧘';
         title = '體態維持型 (Body Maintenance)';
-        description = `您今日攝取了足夠的蛋白質（已達 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），但重量訓練不足（<b>${weightTrainingMins} 分鐘</b>，未達標 30 分鐘）。雖然缺乏足夠的機械張力刺激肌肉生長，但充足的蛋白質與飲食管理能有效維持現有的瘦肉組織，避免流失。`;
+        description = `您近期（過去 7 天日均）攝取了足夠的蛋白質（日均 <b>${totalProtein.toFixed(1)}g</b>，目標 ${targetProtein}g），但阻力訓練不足（週累計 <b>${weightTrainingMins} 分鐘</b>，未達週目標 90 分鐘）。雖然缺乏足夠的機械張力刺激肌肉生長，但充足的蛋白質與飲食管理能有效維持現有的瘦肉組織，避免流失。`;
         if (isOverweight) {
           pathTitle = '⚖️ 偏重/高體脂體態路徑';
           pathDesc = `沒有重量訓練的破壞與重建，身體不會啟動肌肉生長機制。在熱量平衡或微幅波動下，您的<b>體重與身形不會有明顯變化</b>，體脂也難以顯著下降。建議加入每週至少 3 次阻力訓練。`;
@@ -1099,7 +1141,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusClass = 'status-muscle-loss';
         emoji = '⚠️';
         title = '肌肉流失型 (Muscle Loss / Skinny Fat)';
-        description = `您今日創造了 <b>${Math.round(netDeficit)} kcal</b> 的熱量赤字，但蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>，未達目標的 80% 即 ${Math.round(targetProtein * 0.8)}g）。在熱量不足且缺乏原料（蛋白質）的情況下，身體會被迫分解肌肉組織來供能，形成所謂的「節食流失肌肉」。`;
+        description = `您近期（過去 7 天日均）創造了 <b>${Math.round(netDeficit)} kcal</b> 的日均熱量赤字，但蛋白質攝取不足（日均僅 <b>${totalProtein.toFixed(1)}g</b>，未達目標的 80% 即 ${Math.round(targetProtein * 0.8)}g）。在熱量不足且缺乏原料（蛋白質）的情況下，身體會被迫分解肌肉組織來供能，形成所謂的「節食流失肌肉」。`;
         warningHtml = `<div class="warning-li" style="color: #ef4444; font-size: 11px; margin-top: 8px; font-weight: bold;">※ 警告：流失體重的 <b>35%</b> 均為寶貴的肌肉！</div>`;
         if (isOverweight) {
           pathTitle = '⚖️ 偏重/高體脂體態路徑';
@@ -1113,7 +1155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         statusClass = 'status-fat-gain';
         emoji = '📈';
         title = '脂肪囤積型 (Fat Accumulation)';
-        description = `您今日熱量處於平衡或盈餘狀態（盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>），且蛋白質攝取不足（僅 <b>${totalProtein.toFixed(1)}g</b>），同時也缺乏重訓。在沒有運動刺激、沒有充足蛋白質、卻有熱量多餘的情況下，多餘的熱量將全部以脂肪形式儲存。`;
+        description = `您近期（過去 7 天日均）熱量處於平衡或盈餘狀態（日均盈餘 <b>${Math.round(Math.abs(netDeficit))} kcal</b>），且蛋白質攝取不足（日均僅 <b>${totalProtein.toFixed(1)}g</b>），同時也缺乏重訓。在沒有運動刺激、沒有充足蛋白質、卻有熱量多餘的情況下，多餘的熱量將全部以脂肪形式儲存。`;
         if (isOverweight) {
           pathTitle = '⚖️ 偏重/高體脂體態路徑';
           pathDesc = `這是需要特別警惕的狀態。多餘的熱量會快速轉化為脂肪，堆積在腹部、臀部與大腿等脂肪易囤積部位，導致**體重快速上升，身形明顯橫向發展，體脂率攀升**。`;
@@ -2943,10 +2985,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // 3. Calorie Ring Totals
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const totalOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const netCalories = totalIn - (tdee + totalOut);
+    const totalWorkoutMins = log.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
+    const doubleCounted = Math.round((tdee / 1440) * totalWorkoutMins);
+    const netCalories = totalIn - (tdee + totalOut - doubleCounted);
     
     el.totalCalIn.textContent = `${Math.round(totalIn)} kcal`;
-    el.totalCalOut.textContent = `${Math.round(tdee + totalOut)} kcal`;
+    el.totalCalOut.textContent = `${Math.round(tdee + totalOut - doubleCounted)} kcal`;
     el.netCalVal.textContent = Math.round(netCalories);
     
     // Color code Net Calorie text based on deficit/surplus
@@ -3821,14 +3865,18 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     const weight = parseFloat(state.profile.weight) || 70;
     
     // Simple duration parser helper (looks for numbers followed by 分 or 小時)
-    let duration = 30; // Default
+    let duration = 0;
     const hourMatch = promptText.match(/(\d+(?:\.\d+)?)\s*(?:小時|hr|hour)/);
     const minMatch = promptText.match(/(\d+)\s*(?:分鐘|分|min)/);
     
     if (hourMatch) {
-      duration = Math.round(parseFloat(hourMatch[1]) * 60);
-    } else if (minMatch) {
-      duration = parseInt(minMatch[1]);
+      duration += Math.round(parseFloat(hourMatch[1]) * 60);
+    }
+    if (minMatch) {
+      duration += parseInt(minMatch[1]);
+    }
+    if (duration === 0) {
+      duration = 30; // Default
     }
     
     MOCK_WORKOUT_DB.forEach(w => {
