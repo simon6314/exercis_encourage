@@ -476,15 +476,29 @@ document.addEventListener('DOMContentLoaded', () => {
     let chest = 0;
     let biceps = 0;
     
+    // Detect if user has the custom "lean limbs, fat trunk" profile (height ~ 179cm, male)
+    const isCustomProfile = gender === 'male' && (height >= 177 && height <= 181);
+    
     if (gender === 'female') {
       waist = height * 0.35 + fm * 1.0;
       chest = height * 0.28 + ffm * 0.5 + fm * 0.35 + 8;
       biceps = ffm * 0.3 + fm * 0.25 + 8;
     } else {
       // Default: male
-      waist = height * 0.38 + fm * 1.2;
-      chest = height * 0.3 + ffm * 0.6 + fm * 0.2 + 12;
-      biceps = ffm * 0.35 + fm * 0.2 + 10;
+      let waistFatCoeff = 1.2;
+      let chestFatCoeff = 0.2;
+      let bicepsFatCoeff = 0.2;
+      
+      if (isCustomProfile) {
+        // Lean limbs, fat concentrated in waist (Android/trunk type)
+        waistFatCoeff = 1.35;  // Fat has greater impact on waist size
+        chestFatCoeff = 0.1;   // Fat has less impact on chest size
+        bicepsFatCoeff = 0.05; // Limbs have very little fat, size is muscle-dominated
+      }
+      
+      waist = height * 0.38 + fm * waistFatCoeff;
+      chest = height * 0.3 + ffm * 0.6 + fm * chestFatCoeff + 12;
+      biceps = ffm * 0.35 + fm * bicepsFatCoeff + 10;
     }
     
     return {
