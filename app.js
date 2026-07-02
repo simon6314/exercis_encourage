@@ -2394,25 +2394,60 @@ document.addEventListener('DOMContentLoaded', () => {
       if (latestDate) todayFatPct = fatPercentHistory[latestDate];
     }
     
-    const todayLog = state.dailyLogs[currentActiveDate] || { workouts: [], diet: [] };
-    const todayIn = todayLog.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-    const todayWorkoutOut = todayLog.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+    // Calculate 7-day average data up to currentActiveDate for stable projections in the chart
+    let sum7In = 0;
+    let sum7WorkoutOut = 0;
+    let sum7WorkoutMins = 0;
+    let sum7Protein = 0;
+    let sum7WeightTrainingMins = 0;
+    let loggedDietDays = 0;
+    
     const tdee = calculateTdee();
-    const todayBalance = todayIn - (tdee + todayWorkoutOut);
-    const dailyProjWeightChange = todayBalance / 7700;
+    const dActive = new Date(currentActiveDate + 'T00:00:00');
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(dActive);
+      d.setDate(dActive.getDate() - i);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      
+      const entry = state.dailyLogs[dateStr];
+      if (entry) {
+        const hasDiet = entry.diet && entry.diet.length > 0;
+        if (hasDiet) {
+          sum7In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          sum7Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+          loggedDietDays++;
+        }
+        
+        const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        
+        sum7WorkoutOut += dayWorkout;
+        sum7WorkoutMins += dayMins;
+        sum7WeightTrainingMins += dayWeightTraining;
+      }
+    }
+    
+    const avgDailyIn = loggedDietDays > 0 ? (sum7In / loggedDietDays) : tdee;
+    const avgDailyWorkoutOutRaw = sum7WorkoutOut / 7;
+    const avgDailyWorkoutMins = sum7WorkoutMins / 7;
+    const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
+    const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
+    
+    const avgDailyProtein = loggedDietDays > 0 ? (sum7Protein / loggedDietDays) : 0;
+    const targetProtein = parseFloat(p.targetProtein) || 120;
+    const hasEnoughProtein = avgDailyProtein >= (targetProtein * 0.8);
+    const hasWeightTraining = sum7WeightTrainingMins >= 90;
+    
+    const avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
+    const dailyProjWeightChange = avgDailyBalance / 7700;
     
     const restDays = parseInt(p.restDays) || 0;
     const trainingDays = Math.max(0, 7 - restDays);
-    const targetProtein = parseFloat(p.targetProtein) || 120;
-    const todayProtein = todayLog.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
-    const hasEnoughProtein = todayProtein >= (targetProtein * 0.8);
-    const weightTrainingMins = todayLog.workouts
-      .filter(isWeightTraining)
-      .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
-    const hasWeightTraining = weightTrainingMins >= 30;
     
     let dailyProjMuscleChange = 0;
-    if (todayBalance < 0 && !hasEnoughProtein) {
+    if (avgDailyBalance < 0 && !hasEnoughProtein) {
       dailyProjMuscleChange = dailyProjWeightChange * 0.35;
     } else if (hasEnoughProtein) {
       if (hasWeightTraining) {
