@@ -67,8 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Current Selected Date ---
   let currentActiveDate = getTodayDateString();
 
-  // --- Historical Trend Chart Instance & Active Range ---
-  let historyChart = null;
+  let historyCharts = { weight: null, muscle: null, fat: null, waist: null, chest: null, biceps: null };
   let activeChartRange = 7;
 
   // --- Last Computed Estimated Body State ---
@@ -2236,6 +2235,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const weightHistory = {}; // key: dateStr, value: weight
     const muscleHistory = {}; // key: dateStr, value: muscle
     const fatPercentHistory = {}; // key: dateStr, value: fatPercent
+    const waistHistory = {};
+    const chestHistory = {};
+    const bicepsHistory = {};
     
     allDatesSorted.forEach(date => {
       if (date > maxDateStr) return;
@@ -2258,13 +2260,6 @@ document.addEventListener('DOMContentLoaded', () => {
       const hasWeight = dayWeight !== undefined && dayWeight !== null && dayWeight > 0;
       const hasMuscle = dayMuscle !== undefined && dayMuscle !== null && dayMuscle > 0;
       const hasFat = dayFatPercent !== undefined && dayFatPercent !== null && dayFatPercent > 0;
-      
-      if (!hasWorkouts && !hasDiet && !hasWeight && !hasMuscle && !hasFat) {
-        weightHistory[date] = cumWeight;
-        muscleHistory[date] = cumMuscle;
-        fatPercentHistory[date] = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
-        return;
-      }
       
       if (hasWeight) {
         const currentFatPct = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
@@ -2329,12 +2324,40 @@ document.addEventListener('DOMContentLoaded', () => {
       weightHistory[date] = plotWeight;
       muscleHistory[date] = plotMuscle;
       fatPercentHistory[date] = plotFat;
+      
+      const gender = p.gender || 'male';
+      const heightVal = parseFloat(p.height) || 175;
+      
+      let dayWaist = entry.waist;
+      let dayChest = entry.chest;
+      let dayBiceps = entry.biceps;
+      if (options && options.ignoreActiveDateActuals && date === currentActiveDate) {
+        dayWaist = undefined;
+        dayChest = undefined;
+        dayBiceps = undefined;
+      }
+      
+      let plotWaist = (dayWaist !== undefined && dayWaist !== null && parseFloat(dayWaist) > 0) ? parseFloat(dayWaist) : null;
+      let plotChest = (dayChest !== undefined && dayChest !== null && parseFloat(dayChest) > 0) ? parseFloat(dayChest) : null;
+      let plotBiceps = (dayBiceps !== undefined && dayBiceps !== null && parseFloat(dayBiceps) > 0) ? parseFloat(dayBiceps) : null;
+      
+      const baseSizes = calculateBaseBodyMeasurements(gender, heightVal, plotWeight, plotFat);
+      if (plotWaist === null) plotWaist = baseSizes.waist;
+      if (plotChest === null) plotChest = baseSizes.chest;
+      if (plotBiceps === null) plotBiceps = baseSizes.biceps;
+      
+      waistHistory[date] = plotWaist;
+      chestHistory[date] = plotChest;
+      bicepsHistory[date] = plotBiceps;
     });
     
     return {
       weightHistory,
       muscleHistory,
-      fatPercentHistory
+      fatPercentHistory,
+      waistHistory,
+      chestHistory,
+      bicepsHistory
     };
   }
 
@@ -2349,6 +2372,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const weightHistory = history.weightHistory;
     const muscleHistory = history.muscleHistory;
     const fatPercentHistory = history.fatPercentHistory;
+    const waistHistory = history.waistHistory;
+    const chestHistory = history.chestHistory;
+    const bicepsHistory = history.bicepsHistory;
     
     const sortedLoggedDates = Object.keys(weightHistory).sort();
     
@@ -2393,6 +2419,53 @@ document.addEventListener('DOMContentLoaded', () => {
       }
       if (latestDate) todayFatPct = fatPercentHistory[latestDate];
     }
+    
+    let todayWaist = 0;
+    if (waistHistory[currentActiveDate] !== undefined) {
+      todayWaist = waistHistory[currentActiveDate];
+    } else if (sortedLoggedDates.length > 0) {
+      let latestDate = null;
+      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+        if (sortedLoggedDates[i] <= currentActiveDate) {
+          latestDate = sortedLoggedDates[i];
+          break;
+        }
+      }
+      if (latestDate) todayWaist = waistHistory[latestDate];
+    }
+    
+    let todayChest = 0;
+    if (chestHistory[currentActiveDate] !== undefined) {
+      todayChest = chestHistory[currentActiveDate];
+    } else if (sortedLoggedDates.length > 0) {
+      let latestDate = null;
+      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+        if (sortedLoggedDates[i] <= currentActiveDate) {
+          latestDate = sortedLoggedDates[i];
+          break;
+        }
+      }
+      if (latestDate) todayChest = chestHistory[latestDate];
+    }
+    
+    let todayBiceps = 0;
+    if (bicepsHistory[currentActiveDate] !== undefined) {
+      todayBiceps = bicepsHistory[currentActiveDate];
+    } else if (sortedLoggedDates.length > 0) {
+      let latestDate = null;
+      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+        if (sortedLoggedDates[i] <= currentActiveDate) {
+          latestDate = sortedLoggedDates[i];
+          break;
+        }
+      }
+      if (latestDate) todayBiceps = bicepsHistory[latestDate];
+    }
+    
+    const baseSizesToday = calculateBaseBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, todayWeight, todayFatPct);
+    if (!todayWaist) todayWaist = baseSizesToday.waist;
+    if (!todayChest) todayChest = baseSizesToday.chest;
+    if (!todayBiceps) todayBiceps = baseSizesToday.biceps;
     
     // Calculate 7-day average data up to currentActiveDate for stable projections in the chart
     let sum7In = 0;
@@ -2463,12 +2536,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const weightTrend = [];
     const muscleTrend = [];
     const fatPercentTrend = [];
+    const waistTrend = [];
+    const chestTrend = [];
+    const bicepsTrend = [];
     
     datesRange.forEach(date => {
       if (date <= currentActiveDate) {
         let wVal = weightHistory[date];
         let mVal = muscleHistory[date];
         let fVal = fatPercentHistory[date];
+        let waistVal = waistHistory[date];
+        let chestVal = chestHistory[date];
+        let bicepsVal = bicepsHistory[date];
         
         if (wVal === undefined) {
           let latestDate = null;
@@ -2500,10 +2579,43 @@ document.addEventListener('DOMContentLoaded', () => {
           }
           fVal = latestDate ? fatPercentHistory[latestDate] : initialFatPct;
         }
+        if (waistVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
+          }
+          waistVal = latestDate ? waistHistory[latestDate] : baseSizesToday.waist;
+        }
+        if (chestVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
+          }
+          chestVal = latestDate ? chestHistory[latestDate] : baseSizesToday.chest;
+        }
+        if (bicepsVal === undefined) {
+          let latestDate = null;
+          for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
+            if (sortedLoggedDates[i] <= date) {
+              latestDate = sortedLoggedDates[i];
+              break;
+            }
+          }
+          bicepsVal = latestDate ? bicepsHistory[latestDate] : baseSizesToday.biceps;
+        }
         
         weightTrend.push(parseFloat(wVal.toFixed(2)));
         muscleTrend.push(parseFloat(mVal.toFixed(2)));
         fatPercentTrend.push(parseFloat(fVal.toFixed(1)));
+        waistTrend.push(parseFloat(waistVal.toFixed(1)));
+        chestTrend.push(parseFloat(chestVal.toFixed(1)));
+        bicepsTrend.push(parseFloat(bicepsVal.toFixed(1)));
       } else {
         const d1 = new Date(currentActiveDate + 'T00:00:00');
         const d2 = new Date(date + 'T00:00:00');
@@ -2517,17 +2629,221 @@ document.addEventListener('DOMContentLoaded', () => {
         const projFatMass = Math.max(1, baseFatMass + (diffDays * dailyProjFatChange));
         const projFatPct = Math.max(1, Math.min(99, (projFatMass / projWeight) * 100));
         
+        const projSizes = calculateBaseBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, projWeight, projFatPct);
+        
         weightTrend.push(parseFloat(projWeight.toFixed(2)));
         muscleTrend.push(parseFloat(projMuscle.toFixed(2)));
         fatPercentTrend.push(parseFloat(projFatPct.toFixed(1)));
+        waistTrend.push(parseFloat(projSizes.waist.toFixed(1)));
+        chestTrend.push(parseFloat(projSizes.chest.toFixed(1)));
+        bicepsTrend.push(parseFloat(projSizes.biceps.toFixed(1)));
       }
     });
     
     return {
       weightTrend,
       muscleTrend,
-      fatPercentTrend
+      fatPercentTrend,
+      waistTrend,
+      chestTrend,
+      bicepsTrend
     };
+  }
+
+  // --- Cross-Chart Hover Syncing logic ---
+  let isSyncingHover = false;
+  
+  function syncChartsHover(hoveredIndex, activeChartId) {
+    if (isSyncingHover) return;
+    isSyncingHover = true;
+    
+    Object.keys(historyCharts).forEach(key => {
+      const chart = historyCharts[key];
+      if (!chart || key === activeChartId) return;
+      
+      chart.setActiveElements([{
+        datasetIndex: 0,
+        index: hoveredIndex
+      }]);
+      
+      const tooltip = chart.tooltip;
+      if (tooltip) {
+        const meta = chart.getDatasetMeta(0);
+        const dataPoint = meta.data[hoveredIndex];
+        if (dataPoint) {
+          tooltip.setActiveElements([{
+            datasetIndex: 0,
+            index: hoveredIndex
+          }], {
+            x: dataPoint.x,
+            y: dataPoint.y
+          });
+        }
+      }
+      
+      chart.update('none'); // Update immediately without animation
+    });
+    
+    isSyncingHover = false;
+  }
+  
+  function clearChartsHover(activeChartId) {
+    if (isSyncingHover) return;
+    isSyncingHover = true;
+    
+    Object.keys(historyCharts).forEach(key => {
+      const chart = historyCharts[key];
+      if (!chart || key === activeChartId) return;
+      
+      chart.setActiveElements([]);
+      const tooltip = chart.tooltip;
+      if (tooltip) {
+        tooltip.setActiveElements([], { x: 0, y: 0 });
+      }
+      chart.update('none');
+    });
+    
+    isSyncingHover = false;
+  }
+
+  // --- Render Chart.js Historical Trend Chart ---
+  function renderHistoryChart() {
+    if (typeof Chart === 'undefined') {
+      console.warn('Chart.js is not loaded yet. Skipping rendering.');
+      return;
+    }
+    
+    const dates = getPastDatesRange(currentActiveDate, activeChartRange);
+    const trends = getBodyStateTrendForDates(dates);
+    
+    const labels = dates.map(d => {
+      const parts = d.split('-');
+      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
+    });
+    
+    // Destroy previous charts if they exist
+    Object.keys(historyCharts).forEach(key => {
+      if (historyCharts[key]) {
+        historyCharts[key].destroy();
+        historyCharts[key] = null;
+      }
+    });
+    
+    // Helper function to generate single independent chart
+    function createSingleChart(canvasId, label, data, color, unit, key) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return null;
+      
+      const ctx = canvas.getContext('2d');
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: label,
+            data: data,
+            borderColor: color,
+            backgroundColor: 'rgba(255, 255, 255, 0.01)',
+            borderWidth: 2.5,
+            pointBackgroundColor: color,
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 1.2,
+            pointRadius: activeChartRange === 7 ? 4 : 2.5,
+            pointHoverRadius: 6,
+            pointHitRadius: 20,
+            tension: 0.3,
+            segment: {
+              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [5, 5] : undefined
+            }
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: {
+            mode: 'index',
+            intersect: false
+          },
+          onHover: (event, chartElements) => {
+            if (chartElements && chartElements.length > 0) {
+              const index = chartElements[0].index;
+              syncChartsHover(index, key);
+            } else {
+              clearChartsHover(key);
+            }
+          },
+          plugins: {
+            legend: {
+              display: false
+            },
+            tooltip: {
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              titleColor: '#f8fafc',
+              bodyColor: '#cbd5e1',
+              borderColor: 'rgba(255, 255, 255, 0.1)',
+              borderWidth: 1,
+              padding: 8,
+              cornerRadius: 6,
+              titleFont: {
+                family: 'Plus Jakarta Sans',
+                weight: '700',
+                size: 11
+              },
+              bodyFont: {
+                family: 'Plus Jakarta Sans',
+                size: 11
+              },
+              displayColors: false,
+              callbacks: {
+                label: function(context) {
+                  return `${label}: ${context.parsed.y} ${unit}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: {
+                color: 'rgba(255, 255, 255, 0.03)',
+                borderColor: 'rgba(255, 255, 255, 0.06)'
+              },
+              ticks: {
+                color: '#64748b',
+                font: {
+                  family: 'Plus Jakarta Sans',
+                  size: 9
+                }
+              }
+            },
+            y: {
+              grace: '8%',
+              grid: {
+                color: 'rgba(255, 255, 255, 0.03)',
+                borderColor: 'rgba(255, 255, 255, 0.06)'
+              },
+              ticks: {
+                color: '#64748b',
+                font: {
+                  family: 'Plus Jakarta Sans',
+                  size: 9
+                },
+                callback: function(value) {
+                  return value + ' ' + unit;
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    // Instantiate all 6 independent charts
+    historyCharts.weight = createSingleChart('chart-weight', '體重', trends.weightTrend, '#8b5cf6', 'kg', 'weight');
+    historyCharts.muscle = createSingleChart('chart-muscle', '肌肉量', trends.muscleTrend, '#10b981', 'kg', 'muscle');
+    historyCharts.fat = createSingleChart('chart-fat', '體脂率', trends.fatPercentTrend, '#ff6b00', '%', 'fat');
+    historyCharts.waist = createSingleChart('chart-waist', '腰圍', trends.waistTrend, '#06b6d4', 'cm', 'waist');
+    historyCharts.chest = createSingleChart('chart-chest', '胸圍', trends.chestTrend, '#ec4899', 'cm', 'chest');
+    historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', trends.bicepsTrend, '#f59e0b', 'cm', 'biceps');
   }
 
   // --- Generate Date List for Chart ---
@@ -2544,227 +2860,6 @@ document.addEventListener('DOMContentLoaded', () => {
       dates.push(`${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`);
     }
     return dates;
-  }
-
-  // --- Render Chart.js Historical Trend Chart ---
-  function renderHistoryChart() {
-    const canvas = document.getElementById('history-trend-chart');
-    if (!canvas) return;
-    
-    // Set parent wrapper min-width depending on date range to enable horizontal scroll on mobile
-    const wrapper = canvas.parentElement;
-    if (wrapper) {
-      wrapper.style.minWidth = activeChartRange === 7 ? '600px' : '1200px';
-    }
-    
-    if (typeof Chart === 'undefined') {
-      console.warn('Chart.js is not loaded yet. Skipping rendering.');
-      return;
-    }
-    
-    const dates = getPastDatesRange(currentActiveDate, activeChartRange);
-    const trends = getBodyStateTrendForDates(dates);
-    
-    const labels = dates.map(d => {
-      const parts = d.split('-');
-      return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
-    });
-    
-    if (historyChart) {
-      historyChart.destroy();
-    }
-    
-    const ctx = canvas.getContext('2d');
-    
-    historyChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            label: '體重 (kg)',
-            data: trends.weightTrend,
-            borderColor: '#8b5cf6', // purple
-            backgroundColor: 'rgba(139, 92, 246, 0.03)',
-            borderWidth: 3,
-            pointBackgroundColor: '#8b5cf6',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 1.5,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            pointHitRadius: 25,
-            tension: 0.3,
-            yAxisID: 'y-kg',
-            segment: {
-              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
-            }
-          },
-          {
-            label: '肌肉量 (kg)',
-            data: trends.muscleTrend,
-            borderColor: '#10b981', // green
-            backgroundColor: 'rgba(16, 185, 129, 0.03)',
-            borderWidth: 3,
-            pointBackgroundColor: '#10b981',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 1.5,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            pointHitRadius: 25,
-            tension: 0.3,
-            yAxisID: 'y-kg',
-            segment: {
-              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
-            }
-          },
-          {
-            label: '體脂率 (%)',
-            data: trends.fatPercentTrend,
-            borderColor: '#ff6b00', // orange
-            backgroundColor: 'rgba(255, 107, 0, 0.03)',
-            borderWidth: 3,
-            pointBackgroundColor: '#ff6b00',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 1.5,
-            pointRadius: 5,
-            pointHoverRadius: 8,
-            pointHitRadius: 25,
-            tension: 0.3,
-            yAxisID: 'y-percent',
-            segment: {
-              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [6, 6] : undefined
-            }
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: {
-          mode: 'index',
-          intersect: false
-        },
-        plugins: {
-          legend: {
-            position: 'top',
-            labels: {
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11,
-                weight: '600'
-              },
-              boxWidth: 12,
-              padding: 15
-            }
-          },
-          tooltip: {
-            backgroundColor: 'rgba(15, 23, 42, 0.9)',
-            titleColor: '#f8fafc',
-            bodyColor: '#cbd5e1',
-            borderColor: 'rgba(255, 255, 255, 0.1)',
-            borderWidth: 1,
-            padding: 10,
-            cornerRadius: 8,
-            titleFont: {
-              family: 'Plus Jakarta Sans',
-              weight: '700'
-            },
-            bodyFont: {
-              family: 'Plus Jakarta Sans'
-            },
-            displayColors: true,
-            callbacks: {
-              label: function(context) {
-                let label = context.dataset.label || '';
-                if (label) {
-                  label += ': ';
-                }
-                if (context.parsed.y !== null) {
-                  if (context.dataset.yAxisID === 'y-kg') {
-                    label += context.parsed.y.toFixed(2) + ' kg';
-                  } else {
-                    label += context.parsed.y.toFixed(1) + ' %';
-                  }
-                }
-                return label;
-              }
-            }
-          }
-        },
-        scales: {
-          x: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.04)',
-              borderColor: 'rgba(255, 255, 255, 0.08)'
-            },
-            ticks: {
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11
-              }
-            }
-          },
-          'y-kg': {
-            type: 'linear',
-            position: 'left',
-            grid: {
-              color: 'rgba(255, 255, 255, 0.04)',
-              borderColor: 'rgba(255, 255, 255, 0.08)'
-            },
-            ticks: {
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11
-              },
-              callback: function(value) {
-                return Number(value.toFixed(2)) + ' kg';
-              }
-            },
-            title: {
-              display: true,
-              text: '體重 / 肌肉量 (kg)',
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11,
-                weight: '600'
-              }
-            }
-          },
-          'y-percent': {
-            type: 'linear',
-            position: 'right',
-            grid: {
-              drawOnChartArea: false,
-              borderColor: 'rgba(255, 255, 255, 0.08)'
-            },
-            ticks: {
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11
-              },
-              callback: function(value) {
-                return Number(value.toFixed(2)) + ' %';
-              }
-            },
-            title: {
-              display: true,
-              text: '體脂率 (%)',
-              color: '#94a3b8',
-              font: {
-                family: 'Plus Jakarta Sans',
-                size: 11,
-                weight: '600'
-              }
-            }
-          }
-        }
-      }
-    });
   }
 
   window.changeChartRange = (days) => {
@@ -4411,6 +4506,11 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
       btn.classList.add('active');
       const activePane = document.getElementById(`tab-content-${tabName}`);
       if (activePane) activePane.classList.add('active');
+      
+      // If switching to trends tab, force-render charts to compute container dimensions correctly
+      if (tabName === 'trends') {
+        renderHistoryChart();
+      }
     });
   });
 
