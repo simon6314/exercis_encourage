@@ -2462,10 +2462,10 @@ document.addEventListener('DOMContentLoaded', () => {
       if (latestDate) todayBiceps = bicepsHistory[latestDate];
     }
     
-    const baseSizesToday = calculateBaseBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, todayWeight, todayFatPct);
-    if (!todayWaist) todayWaist = baseSizesToday.waist;
-    if (!todayChest) todayChest = baseSizesToday.chest;
-    if (!todayBiceps) todayBiceps = baseSizesToday.biceps;
+    const baseSizesToday = calculateBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, todayWeight, todayFatPct);
+    if (!todayWaist) todayWaist = parseFloat(baseSizesToday.waist);
+    if (!todayChest) todayChest = parseFloat(baseSizesToday.chest);
+    if (!todayBiceps) todayBiceps = parseFloat(baseSizesToday.biceps);
     
     // Calculate 7-day average data up to currentActiveDate for stable projections in the chart
     let sum7In = 0;
@@ -2629,14 +2629,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const projFatMass = Math.max(1, baseFatMass + (diffDays * dailyProjFatChange));
         const projFatPct = Math.max(1, Math.min(99, (projFatMass / projWeight) * 100));
         
-        const projSizes = calculateBaseBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, projWeight, projFatPct);
+        const projSizes = calculateBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, projWeight, projFatPct);
         
         weightTrend.push(parseFloat(projWeight.toFixed(2)));
         muscleTrend.push(parseFloat(projMuscle.toFixed(2)));
         fatPercentTrend.push(parseFloat(projFatPct.toFixed(1)));
-        waistTrend.push(parseFloat(projSizes.waist.toFixed(1)));
-        chestTrend.push(parseFloat(projSizes.chest.toFixed(1)));
-        bicepsTrend.push(parseFloat(projSizes.biceps.toFixed(1)));
+        waistTrend.push(parseFloat(parseFloat(projSizes.waist).toFixed(1)));
+        chestTrend.push(parseFloat(parseFloat(projSizes.chest).toFixed(1)));
+        bicepsTrend.push(parseFloat(parseFloat(projSizes.biceps).toFixed(1)));
       }
     });
     
