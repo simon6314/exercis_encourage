@@ -2587,7 +2587,7 @@ document.addEventListener('DOMContentLoaded', () => {
               break;
             }
           }
-          waistVal = latestDate ? waistHistory[latestDate] : baseSizesToday.waist;
+          waistVal = latestDate ? waistHistory[latestDate] : parseFloat(baseSizesToday.waist);
         }
         if (chestVal === undefined) {
           let latestDate = null;
@@ -2597,7 +2597,7 @@ document.addEventListener('DOMContentLoaded', () => {
               break;
             }
           }
-          chestVal = latestDate ? chestHistory[latestDate] : baseSizesToday.chest;
+          chestVal = latestDate ? chestHistory[latestDate] : parseFloat(baseSizesToday.chest);
         }
         if (bicepsVal === undefined) {
           let latestDate = null;
@@ -2607,15 +2607,15 @@ document.addEventListener('DOMContentLoaded', () => {
               break;
             }
           }
-          bicepsVal = latestDate ? bicepsHistory[latestDate] : baseSizesToday.biceps;
+          bicepsVal = latestDate ? bicepsHistory[latestDate] : parseFloat(baseSizesToday.biceps);
         }
         
-        weightTrend.push(parseFloat(wVal.toFixed(2)));
-        muscleTrend.push(parseFloat(mVal.toFixed(2)));
-        fatPercentTrend.push(parseFloat(fVal.toFixed(1)));
-        waistTrend.push(parseFloat(waistVal.toFixed(1)));
-        chestTrend.push(parseFloat(chestVal.toFixed(1)));
-        bicepsTrend.push(parseFloat(bicepsVal.toFixed(1)));
+        weightTrend.push(parseFloat(parseFloat(wVal).toFixed(2)));
+        muscleTrend.push(parseFloat(parseFloat(mVal).toFixed(2)));
+        fatPercentTrend.push(parseFloat(parseFloat(fVal).toFixed(1)));
+        waistTrend.push(parseFloat(parseFloat(waistVal).toFixed(1)));
+        chestTrend.push(parseFloat(parseFloat(chestVal).toFixed(1)));
+        bicepsTrend.push(parseFloat(parseFloat(bicepsVal).toFixed(1)));
       } else {
         const d1 = new Date(currentActiveDate + 'T00:00:00');
         const d2 = new Date(date + 'T00:00:00');
