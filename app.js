@@ -2796,7 +2796,10 @@ document.addEventListener('DOMContentLoaded', () => {
               displayColors: false,
               callbacks: {
                 label: function(context) {
-                  return `${label}: ${context.parsed.y} ${unit}`;
+                  const val = context.parsed.y;
+                  if (val === null || val === undefined) return '';
+                  const formattedVal = (key === 'weight' || key === 'muscle') ? val.toFixed(2) : val.toFixed(1);
+                  return `${label}: ${formattedVal} ${unit}`;
                 }
               }
             }
@@ -2828,7 +2831,8 @@ document.addEventListener('DOMContentLoaded', () => {
                   size: 9
                 },
                 callback: function(value) {
-                  return value + ' ' + unit;
+                  const rounded = Number(value.toFixed(4));
+                  return rounded + ' ' + unit;
                 }
               }
             }
