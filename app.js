@@ -2858,7 +2858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dates = [];
     const endDate = new Date(endDateStr + 'T00:00:00');
     const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 30);
-    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 60);
+    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 59);
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
