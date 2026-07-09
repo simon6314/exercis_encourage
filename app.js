@@ -2748,12 +2748,15 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: color,
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.2,
-            pointRadius: activeChartRange === 7 ? 4 : 2.5,
+            pointRadius: activeChartRange === 7 ? 4 : (activeChartRange === 30 ? 2.5 : 0),
             pointHoverRadius: 6,
             pointHitRadius: 20,
             tension: 0.3,
             segment: {
-              borderDash: ctx => ctx.p1DataIndex > (activeChartRange === 7 ? 3 : 14) ? [5, 5] : undefined
+              borderDash: ctx => {
+                const limit = activeChartRange === 7 ? 3 : (activeChartRange === 30 ? 14 : 30);
+                return ctx.p1DataIndex > limit ? [5, 5] : undefined;
+              }
             }
           }]
         },
@@ -2854,8 +2857,8 @@ document.addEventListener('DOMContentLoaded', () => {
   function getPastDatesRange(endDateStr, daysCount) {
     const dates = [];
     const endDate = new Date(endDateStr + 'T00:00:00');
-    const pastDays = daysCount === 7 ? 3 : 14;
-    const futureDays = daysCount === 7 ? 3 : 15;
+    const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 30);
+    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 90);
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
@@ -2870,13 +2873,16 @@ document.addEventListener('DOMContentLoaded', () => {
     activeChartRange = days;
     const btn7 = document.getElementById('btn-chart-range-7');
     const btn30 = document.getElementById('btn-chart-range-30');
-    if (days === 7) {
-      if (btn7) btn7.classList.add('active');
-      if (btn30) btn30.classList.remove('active');
-    } else {
-      if (btn7) btn7.classList.remove('active');
-      if (btn30) btn30.classList.add('active');
-    }
+    const btn90 = document.getElementById('btn-chart-range-90');
+    
+    if (btn7) btn7.classList.remove('active');
+    if (btn30) btn30.classList.remove('active');
+    if (btn90) btn90.classList.remove('active');
+    
+    if (days === 7 && btn7) btn7.classList.add('active');
+    else if (days === 30 && btn30) btn30.classList.add('active');
+    else if (days === 90 && btn90) btn90.classList.add('active');
+    
     renderHistoryChart();
   };
 
