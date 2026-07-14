@@ -2858,7 +2858,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const dates = [];
     const endDate = new Date(endDateStr + 'T00:00:00');
     const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 30);
-    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 59);
+    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 60);
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
@@ -2888,26 +2888,72 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Update Cumulative Body State UI ---
   function updateCumulativeBodyStateUI() {
-    const est = calculateCumulativeBodyState();
-    lastEstimatedBodyState = est;
-    
-    if (el.estWeightVal) el.estWeightVal.textContent = `${est.weight.toFixed(2)} kg`;
-    if (el.estMuscleVal) el.estMuscleVal.textContent = `${est.muscle.toFixed(2)} kg`;
-    if (el.estFatVal) el.estFatVal.textContent = `${est.fatPercent.toFixed(1)} %`;
-    
-    // Render current estimated sizes
-    const sizes = calculateBodyMeasurements(state.profile.gender, state.profile.height, est.weight, est.fatPercent);
-    const offsets = calculateMeasurementOffsets();
-    const formatOffsetSpan = (val) => {
-      if (val === 0) return '';
-      const sign = val >= 0 ? '+' : '';
-      return ` <span style="font-size: 10px; font-weight: 500; opacity: 0.8; white-space: nowrap; color: var(--text-secondary);">(${sign}${val.toFixed(1)}cm)</span>`;
-    };
-    if (el.estWaistVal) el.estWaistVal.innerHTML = `${sizes.waist} cm${formatOffsetSpan(offsets.waist)}`;
-    if (el.estChestVal) el.estChestVal.innerHTML = `${sizes.chest} cm${formatOffsetSpan(offsets.chest)}`;
-    if (el.estBicepsVal) el.estBicepsVal.innerHTML = `${sizes.biceps} cm${formatOffsetSpan(offsets.biceps)}`;
+    const estSim = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
+    const estActual = calculateCumulativeBodyState();
+    lastEstimatedBodyState = estActual;
     
     const log = getActiveLog();
+    const hasActualWeight = log.weight !== undefined && log.weight !== null && log.weight > 0;
+    const hasActualMuscle = log.muscle !== undefined && log.muscle !== null && log.muscle > 0;
+    const hasActualFat = log.fatPercent !== undefined && log.fatPercent !== null && log.fatPercent > 0;
+    const hasActualWaist = log.waist !== undefined && log.waist !== null && log.waist > 0;
+    const hasActualChest = log.chest !== undefined && log.chest !== null && log.chest > 0;
+    const hasActualBiceps = log.biceps !== undefined && log.biceps !== null && log.biceps > 0;
+    
+    const formatValWithActual = (element, simVal, actualVal, hasActual, unit, decimals = 2) => {
+      if (!element) return;
+      const simStr = simVal.toFixed(decimals);
+      if (hasActual) {
+        const actStr = actualVal.toFixed(decimals);
+        const diff = actualVal - simVal;
+        const diffSign = diff >= 0 ? '+' : '';
+        const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff > 0 ? '#ef4444' : 'var(--accent-green)');
+        element.innerHTML = `
+          <div style="font-size: 11px; font-weight: 500; opacity: 0.8; margin-bottom: 2px;">估算: ${simStr}${unit}</div>
+          <div style="font-size: 15px; font-weight: 700; color: #FFF;">實際: ${actStr}${unit}</div>
+          <div style="font-size: 10px; font-weight: 600; color: ${diffColor}; margin-top: 1px;">誤差: ${diffSign}${diff.toFixed(decimals)}${unit}</div>
+        `;
+      } else {
+        element.innerHTML = `
+          <span style="font-size: 16px; font-weight: 700; color: #FFF;">${simStr}${unit}</span>
+          <div style="font-size: 9px; font-weight: 500; opacity: 0.5; margin-top: 2px;">(未填實際值)</div>
+        `;
+      }
+    };
+
+    formatValWithActual(el.estWeightVal, estSim.weight, estActual.weight, hasActualWeight, ' kg', 2);
+    formatValWithActual(el.estMuscleVal, estSim.muscle, estActual.muscle, hasActualMuscle, ' kg', 2);
+    formatValWithActual(el.estFatVal, estSim.fatPercent, estActual.fatPercent, hasActualFat, ' %', 1);
+    
+    const sizesSim = calculateBodyMeasurements(state.profile.gender, state.profile.height, estSim.weight, estSim.fatPercent);
+    const actualWaist = hasActualWaist ? parseFloat(log.waist) : null;
+    const actualChest = hasActualChest ? parseFloat(log.chest) : null;
+    const actualBiceps = hasActualBiceps ? parseFloat(log.biceps) : null;
+    
+    const formatSizeWithActual = (element, simValStr, actualVal, hasActual, labelColor) => {
+      if (!element) return;
+      const simVal = parseFloat(simValStr);
+      if (hasActual) {
+        const diff = actualVal - simVal;
+        const diffSign = diff >= 0 ? '+' : '';
+        const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff > 0 ? '#ef4444' : 'var(--accent-green)');
+        element.innerHTML = `
+          <div style="font-size: 11px; font-weight: 500; opacity: 0.8; margin-bottom: 2px;">估算: ${simVal.toFixed(1)}cm</div>
+          <div style="font-size: 13px; font-weight: 700; color: ${labelColor};">實際: ${actualVal.toFixed(1)}cm</div>
+          <div style="font-size: 9px; font-weight: 600; color: ${diffColor}; margin-top: 1px;">誤差: ${diffSign}${diff.toFixed(1)}cm</div>
+        `;
+      } else {
+        element.innerHTML = `
+          <span style="font-size: 14px; font-weight: 700; color: ${labelColor};">${simVal.toFixed(1)} cm</span>
+          <div style="font-size: 9px; font-weight: 500; opacity: 0.5; margin-top: 2px;">(未填實際值)</div>
+        `;
+      }
+    };
+    
+    formatSizeWithActual(el.estWaistVal, sizesSim.waist, actualWaist, hasActualWaist, 'var(--accent-green)');
+    formatSizeWithActual(el.estChestVal, sizesSim.chest, actualChest, hasActualChest, 'var(--accent-purple)');
+    formatSizeWithActual(el.estBicepsVal, sizesSim.biceps, actualBiceps, hasActualBiceps, 'var(--accent-orange)');
+    
     if (el.inputDailyWeight) {
       el.inputDailyWeight.value = (log.weight !== undefined && log.weight !== null) ? parseFloat(log.weight).toFixed(2) : '';
     }
