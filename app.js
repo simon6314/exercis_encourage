@@ -2931,29 +2931,34 @@ document.addEventListener('DOMContentLoaded', () => {
     const actualChest = hasActualChest ? parseFloat(log.chest) : null;
     const actualBiceps = hasActualBiceps ? parseFloat(log.biceps) : null;
     
-    const formatSizeWithActual = (element, simValStr, actualVal, hasActual, labelColor) => {
+    const offsets = calculateMeasurementOffsets();
+    
+    const formatSizeWithActual = (element, simValStr, actualVal, hasActual, offsetVal, labelColor) => {
       if (!element) return;
       const simVal = parseFloat(simValStr);
+      const offsetSign = offsetVal >= 0 ? '+' : '';
+      const offsetText = offsetVal !== 0 ? ` <span style="font-size: 9px; opacity: 0.65; color: var(--text-secondary); white-space: nowrap;">(校準: ${offsetSign}${offsetVal.toFixed(1)}cm)</span>` : '';
+      
       if (hasActual) {
         const diff = actualVal - simVal;
         const diffSign = diff >= 0 ? '+' : '';
         const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff > 0 ? '#ef4444' : 'var(--accent-green)');
         element.innerHTML = `
-          <div style="font-size: 11px; font-weight: 500; opacity: 0.8; margin-bottom: 2px;">估算: ${simVal.toFixed(1)}cm</div>
+          <div style="font-size: 11px; font-weight: 500; opacity: 0.8; margin-bottom: 2px;">估算: ${simVal.toFixed(1)}cm${offsetText}</div>
           <div style="font-size: 13px; font-weight: 700; color: ${labelColor};">實際: ${actualVal.toFixed(1)}cm</div>
           <div style="font-size: 9px; font-weight: 600; color: ${diffColor}; margin-top: 1px;">誤差: ${diffSign}${diff.toFixed(1)}cm</div>
         `;
       } else {
         element.innerHTML = `
-          <span style="font-size: 14px; font-weight: 700; color: ${labelColor};">${simVal.toFixed(1)} cm</span>
+          <span style="font-size: 14px; font-weight: 700; color: ${labelColor};">${simVal.toFixed(1)} cm</span>${offsetText}
           <div style="font-size: 9px; font-weight: 500; opacity: 0.5; margin-top: 2px;">(未填實際值)</div>
         `;
       }
     };
     
-    formatSizeWithActual(el.estWaistVal, sizesSim.waist, actualWaist, hasActualWaist, 'var(--accent-green)');
-    formatSizeWithActual(el.estChestVal, sizesSim.chest, actualChest, hasActualChest, 'var(--accent-purple)');
-    formatSizeWithActual(el.estBicepsVal, sizesSim.biceps, actualBiceps, hasActualBiceps, 'var(--accent-orange)');
+    formatSizeWithActual(el.estWaistVal, sizesSim.waist, actualWaist, hasActualWaist, offsets.waist, 'var(--accent-green)');
+    formatSizeWithActual(el.estChestVal, sizesSim.chest, actualChest, hasActualChest, offsets.chest, 'var(--accent-purple)');
+    formatSizeWithActual(el.estBicepsVal, sizesSim.biceps, actualBiceps, hasActualBiceps, offsets.biceps, 'var(--accent-orange)');
     
     if (el.inputDailyWeight) {
       el.inputDailyWeight.value = (log.weight !== undefined && log.weight !== null) ? parseFloat(log.weight).toFixed(2) : '';
