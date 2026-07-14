@@ -2891,6 +2891,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const estSim = calculateCumulativeBodyState({ ignoreActiveDateActuals: true });
     const estActual = calculateCumulativeBodyState();
     lastEstimatedBodyState = estActual;
+    const est = estActual;
     
     const log = getActiveLog();
     const hasActualWeight = log.weight !== undefined && log.weight !== null && log.weight > 0;
