@@ -2519,17 +2519,21 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!todayChest) todayChest = parseFloat(baseSizesToday.chest);
     if (!todayBiceps) todayBiceps = parseFloat(baseSizesToday.biceps);
     
-    // Calculate 7-day average data up to currentActiveDate for stable projections in the chart
-    let sum7In = 0;
-    let sum7WorkoutOut = 0;
-    let sum7WorkoutMins = 0;
-    let sum7Protein = 0;
-    let sum7WeightTrainingMins = 0;
+    // Calculate 14-day rolling average data (covering 2 full weekend cycles) up to currentActiveDate for stable chart trend projections
+    let sum14In = 0;
+    let sum14WorkoutOut = 0;
+    let sum14WorkoutMins = 0;
+    let sum14Protein = 0;
+    let sum14WeightTrainingMins = 0;
     let loggedDietDays = 0;
+    const windowSize = 14;
+    
+    // Track actual weight trend for empirical feedback calibration
+    const actualWeightLogs = [];
     
     const tdee = calculateTdee();
     const dActive = new Date(currentActiveDate + 'T00:00:00');
-    for (let i = 0; i < 7; i++) {
+    for (let i = 0; i < windowSize; i++) {
       const d = new Date(dActive);
       d.setDate(dActive.getDate() - i);
       const pad = (n) => String(n).padStart(2, '0');
@@ -2539,33 +2543,53 @@ document.addEventListener('DOMContentLoaded', () => {
       if (entry) {
         const hasDiet = entry.diet && entry.diet.length > 0;
         if (hasDiet) {
-          sum7In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          sum7Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+          sum14In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          sum14Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
           loggedDietDays++;
+        }
+        
+        if (entry.weight !== undefined && entry.weight !== null && parseFloat(entry.weight) > 0) {
+          actualWeightLogs.push({ dateStr, weight: parseFloat(entry.weight) });
         }
         
         const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         
-        sum7WorkoutOut += dayWorkout;
-        sum7WorkoutMins += dayMins;
-        sum7WeightTrainingMins += dayWeightTraining;
+        sum14WorkoutOut += dayWorkout;
+        sum14WorkoutMins += dayMins;
+        sum14WeightTrainingMins += dayWeightTraining;
       }
     }
     
-    const avgDailyIn = loggedDietDays > 0 ? (sum7In / loggedDietDays) : tdee;
-    const avgDailyWorkoutOutRaw = sum7WorkoutOut / 7;
-    const avgDailyWorkoutMins = sum7WorkoutMins / 7;
+    const avgDailyIn = loggedDietDays > 0 ? (sum14In / loggedDietDays) : tdee;
+    const avgDailyWorkoutOutRaw = sum14WorkoutOut / windowSize;
+    const avgDailyWorkoutMins = sum14WorkoutMins / windowSize;
     const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
     const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
     
-    const avgDailyProtein = loggedDietDays > 0 ? (sum7Protein / loggedDietDays) : 0;
+    const avgDailyProtein = loggedDietDays > 0 ? (sum14Protein / loggedDietDays) : 0;
     const targetProtein = parseFloat(p.targetProtein) || 120;
     const hasEnoughProtein = avgDailyProtein >= (targetProtein * 0.8);
-    const hasWeightTraining = sum7WeightTrainingMins >= 90;
+    const sum7WeightTrainingMins = sum14WeightTrainingMins / (windowSize / 7);
+    const weightTrainingFactor = sum7WeightTrainingMins > 0 ? Math.min(1.2, sum7WeightTrainingMins / 90) : 0;
+    const hasWeightTraining = sum7WeightTrainingMins > 0;
     
-    const avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
+    let avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
+    
+    // Empirical weight trend blending (40% calorie model + 60% empirical real weight trend)
+    if (actualWeightLogs.length >= 3) {
+      actualWeightLogs.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      const firstW = actualWeightLogs[0];
+      const lastW = actualWeightLogs[actualWeightLogs.length - 1];
+      const daysDiff = Math.max(1, Math.round((new Date(lastW.dateStr) - new Date(firstW.dateStr)) / (1000 * 60 * 60 * 24)));
+      if (daysDiff >= 5) {
+        const empiricalSlopeWeightPerDay = (lastW.weight - firstW.weight) / daysDiff;
+        const empiricalBalance = empiricalSlopeWeightPerDay * 7700;
+        avgDailyBalance = (avgDailyBalance * 0.4) + (empiricalBalance * 0.6);
+      }
+    }
+    
     const dailyProjWeightChange = avgDailyBalance / 7700;
     
     const restDays = parseInt(p.restDays) || 0;
@@ -2576,14 +2600,15 @@ document.addEventListener('DOMContentLoaded', () => {
       dailyProjMuscleChange = dailyProjWeightChange * 0.35;
     } else if (hasEnoughProtein) {
       if (hasWeightTraining) {
-        const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
+        const avgMuscleGrowthCoeff = ((trainingDays * 1.0 + restDays * 0.25) / 7) * weightTrainingFactor;
         dailyProjMuscleChange = (0.15 * avgMuscleGrowthCoeff) / 7;
       } else {
-        dailyProjMuscleChange = (0.15 * 0.25) / 7;
+        dailyProjMuscleChange = 0;
       }
     }
     
-    const dailyProjFatChange = dailyProjWeightChange - dailyProjMuscleChange;
+    // Apply 0.85 metabolic adaptation dampening to chart line fat loss projection
+    const dailyProjFatChange = (dailyProjWeightChange - dailyProjMuscleChange) * (avgDailyBalance < 0 ? 0.85 : 1.0);
     
     const weightTrend = [];
     const muscleTrend = [];
