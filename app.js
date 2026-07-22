@@ -484,13 +484,13 @@ document.addEventListener('DOMContentLoaded', () => {
       biceps = ffm * 0.3 + fm * 0.25 + 8;
     } else {
       // Default: male
-      let waistFatCoeff = 1.2;
+      let waistFatCoeff = 0.8;
       let chestFatCoeff = 0.2;
       let bicepsFatCoeff = 0.2;
       
       if (isCustomProfile) {
         // Lean limbs, fat concentrated in waist (Android/trunk type)
-        waistFatCoeff = 1.35;  // Fat has greater impact on waist size
+        waistFatCoeff = 0.85; // Calibrated for realistic 0.85 cm / kg fat mass ratio
         chestFatCoeff = 0.1;   // Fat has less impact on chest size
         bicepsFatCoeff = 0.05; // Limbs have very little fat, size is muscle-dominated
       }
@@ -565,8 +565,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const base = calculateBaseBodyMeasurements(gender, height, weight, fatPercent);
     const offsets = calculateMeasurementOffsets();
     
+    const minWaistFloor = (height || 175) * 0.43; // Physical skeletal/visceral floor limit (~77cm for 179cm)
+    const calcWaist = base.waist + offsets.waist;
+    const finalWaist = Math.max(minWaistFloor, calcWaist);
+
     return {
-      waist: (base.waist + offsets.waist).toFixed(1),
+      waist: finalWaist.toFixed(1),
       chest: (base.chest + offsets.chest).toFixed(1),
       biceps: (base.biceps + offsets.biceps).toFixed(1)
     };
@@ -977,8 +981,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
         gain7Muscle = 0.15 * avgMuscleGrowthCoeff;
       } else {
-        // High protein but NO weight training: muscle growth coefficient drops to 0.25
-        gain7Muscle = 0.15 * 0.25;
+        // High protein but NO weight training: maintains existing muscle mass, no new muscle growth
+        gain7Muscle = 0;
       }
     } else {
       // Surplus or neutral with low protein, or other scenarios: 0 muscle growth
@@ -1006,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
         gain30Muscle = 0.6 * avgMuscleGrowthCoeff;
       } else {
-        gain30Muscle = 0.6 * 0.25;
+        gain30Muscle = 0;
       }
     } else {
       gain30Muscle = 0;
@@ -2133,7 +2137,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
             dayMuscleChange = (0.15 * avgMuscleGrowthCoeff) / 7;
           } else {
-            dayMuscleChange = (0.15 * 0.25) / 7;
+            dayMuscleChange = 0;
           }
         }
         
@@ -2306,7 +2310,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
             dayMuscleChange = (0.15 * avgMuscleGrowthCoeff) / 7;
           } else {
-            dayMuscleChange = (0.15 * 0.25) / 7;
+            dayMuscleChange = 0;
           }
         }
         
