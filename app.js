@@ -880,10 +880,29 @@ document.addEventListener('DOMContentLoaded', () => {
     const p = state.profile;
     const log = getActiveLog();
     
-    // Helper to find the latest logged value on or before currentActiveDate (Scheme B/Option 2 starting baseline)
+    // Helper to find smoothed recent logged values for stable baseline (prevents single-day outlier distortions)
+    function getSmoothedRecentLoggedValue(key, fallbackVal) {
+      const dActiveTemp = new Date(currentActiveDate + 'T00:00:00');
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(dActiveTemp);
+        d.setDate(dActiveTemp.getDate() - i);
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        
+        const entry = state.dailyLogs[dateStr];
+        if (entry && entry[key] !== undefined && entry[key] !== null && parseFloat(entry[key]) > 0) {
+          sum += parseFloat(entry[key]);
+          count++;
+          if (count >= 3) break;
+        }
+      }
+      return count > 0 ? (sum / count) : fallbackVal;
+    }
+    
     function getLatestLoggedValue(key, fallbackVal) {
       const dActiveTemp = new Date(currentActiveDate + 'T00:00:00');
-      // Look back up to 60 days
       for (let i = 0; i < 60; i++) {
         const d = new Date(dActiveTemp);
         d.setDate(dActiveTemp.getDate() - i);
@@ -898,9 +917,9 @@ document.addEventListener('DOMContentLoaded', () => {
       return fallbackVal;
     }
     
-    const currentWeight = getLatestLoggedValue('weight', parseFloat(p.weight) || 70);
-    const currentMuscle = getLatestLoggedValue('muscle', parseFloat(p.muscle) || 30);
-    const currentFatPct = getLatestLoggedValue('fatPercent', parseFloat(p.fatPercent) || 20);
+    const currentWeight = getSmoothedRecentLoggedValue('weight', parseFloat(p.weight) || 70);
+    const currentMuscle = getSmoothedRecentLoggedValue('muscle', parseFloat(p.muscle) || 30);
+    const currentFatPct = getSmoothedRecentLoggedValue('fatPercent', parseFloat(p.fatPercent) || 20);
     const loggedWaist = getLatestLoggedValue('waist', null);
     const loggedChest = getLatestLoggedValue('chest', null);
     const loggedBiceps = getLatestLoggedValue('biceps', null);
@@ -1013,6 +1032,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gain7Muscle = 0;
     }
     
+    const minFatPctFloor = (p.gender === 'female' ? 10.0 : 3.0); // Biological essential fat floor limit
     const change7Fat = (change7Weight - gain7Muscle) * (avgDailyBalance < 0 ? 0.90 : 1.0); // fat change with short-term metabolic dampening
     
     const future7Weight = Math.max(30, currentWeight + change7Weight);
@@ -1020,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const currentFatMass = currentWeight * (currentFatPct / 100);
     const future7FatMass = Math.max(1, currentFatMass + change7Fat);
-    const future7FatPct = Math.max(1, Math.min(99, (future7FatMass / future7Weight) * 100));
+    const future7FatPct = Math.max(minFatPctFloor, Math.min(99, (future7FatMass / future7Weight) * 100));
     
     // 30 Days Calculations
     const change30Weight = (avgDailyBalance * 30) / 7700;
@@ -1045,7 +1065,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const future30Weight = Math.max(30, currentWeight + change30Weight);
     const future30Muscle = Math.max(10, currentMuscle + gain30Muscle);
     const future30FatMass = Math.max(1, currentFatMass + change30Fat);
-    const future30FatPct = Math.max(1, Math.min(99, (future30FatMass / future30Weight) * 100));
+    const future30FatPct = Math.max(minFatPctFloor, Math.min(99, (future30FatMass / future30Weight) * 100));
     
     // Update Dashboard UI with deltas
     formatProjText(el.proj7Weight, change7Weight, 'weight', future7Weight, 'kg', currentWeight);
@@ -2165,7 +2185,8 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         
-        const dayFatChange = dayWeightChange - dayMuscleChange;
+        // Apply metabolic adaptation dampening to daily fat loss during deficit
+        const dayFatChange = (dayWeightChange - dayMuscleChange) * (dayCalorieBalance < 0 ? 0.85 : 1.0);
         
         cumWeight += dayWeightChange;
         cumMuscle += dayMuscleChange;
@@ -2192,9 +2213,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let finalFatPercent = (activeHasFat && !ignoreActuals) ? parseFloat(activeLog.fatPercent) : (cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct);
     
     // Clamp to logical limits
+    const minFatPctFloor = (p.gender === 'female' ? 10.0 : 3.0); // Biological essential fat floor limit
     finalWeight = Math.max(30, finalWeight);
     finalMuscle = Math.max(10, finalMuscle);
-    finalFatPercent = Math.max(1, Math.min(99, finalFatPercent));
+    finalFatPercent = Math.max(minFatPctFloor, Math.min(99, finalFatPercent));
     
     return {
       weight: finalWeight,
@@ -2338,16 +2360,18 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
         
-        const dayFatChange = dayWeightChange - dayMuscleChange;
+        // Apply metabolic adaptation dampening to daily fat loss during deficit
+        const dayFatChange = (dayWeightChange - dayMuscleChange) * (dayCalorieBalance < 0 ? 0.85 : 1.0);
         
         cumWeight += dayWeightChange;
         cumMuscle += dayMuscleChange;
         cumFatMass += dayFatChange;
       }
       
+      const minFatPctFloor = (p.gender === 'female' ? 10.0 : 3.0); // Biological essential fat floor limit
       if (plotWeight === null) plotWeight = cumWeight;
       if (plotMuscle === null) plotMuscle = cumMuscle;
-      if (plotFat === null) plotFat = cumWeight > 0 ? (cumFatMass / cumWeight) * 100 : initialFatPct;
+      if (plotFat === null) plotFat = cumWeight > 0 ? Math.max(minFatPctFloor, (cumFatMass / cumWeight) * 100) : initialFatPct;
 
       weightHistory[date] = plotWeight;
       muscleHistory[date] = plotMuscle;
