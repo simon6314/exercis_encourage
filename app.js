@@ -919,15 +919,19 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const totalProtein = log.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
 
-    // Calculate 7-day average data up to currentActiveDate for stable projections
-    let sum7In = 0;
-    let sum7WorkoutOut = 0;
-    let sum7WorkoutMins = 0;
-    let sum7Protein = 0;
-    let sum7WeightTrainingMins = 0;
+    // Calculate 14-day rolling average data (covering 2 full weekend cycles) up to currentActiveDate for ultra-realistic projections
+    let sum14In = 0;
+    let sum14WorkoutOut = 0;
+    let sum14WorkoutMins = 0;
+    let sum14Protein = 0;
+    let sum14WeightTrainingMins = 0;
     let loggedDietDays = 0;
+    const windowSize = 14;
     
-    for (let i = 0; i < 7; i++) {
+    // Track actual weight trend over past logs for empirical feedback calibration
+    const actualWeightLogs = [];
+    
+    for (let i = 0; i < windowSize; i++) {
       const d = new Date(dActive);
       d.setDate(dActive.getDate() - i);
       const pad = (n) => String(n).padStart(2, '0');
@@ -937,36 +941,56 @@ document.addEventListener('DOMContentLoaded', () => {
       if (entry) {
         const hasDiet = entry.diet && entry.diet.length > 0;
         if (hasDiet) {
-          sum7In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-          sum7Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
+          sum14In += entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+          sum14Protein += entry.diet.reduce((sum, item) => sum + (parseFloat(item.protein) || 0), 0);
           loggedDietDays++;
+        }
+        
+        if (entry.weight !== undefined && entry.weight !== null && parseFloat(entry.weight) > 0) {
+          actualWeightLogs.push({ dateStr, weight: parseFloat(entry.weight) });
         }
         
         const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         
-        sum7WorkoutOut += dayWorkout;
-        sum7WorkoutMins += dayMins;
-        sum7WeightTrainingMins += dayWeightTraining;
+        sum14WorkoutOut += dayWorkout;
+        sum14WorkoutMins += dayMins;
+        sum14WeightTrainingMins += dayWeightTraining;
       }
     }
     
-    const avgDailyIn = loggedDietDays > 0 ? (sum7In / loggedDietDays) : tdee;
-    const avgDailyWorkoutOutRaw = sum7WorkoutOut / 7;
-    const avgDailyWorkoutMins = sum7WorkoutMins / 7;
+    const avgDailyIn = loggedDietDays > 0 ? (sum14In / loggedDietDays) : tdee;
+    const avgDailyWorkoutOutRaw = sum14WorkoutOut / windowSize;
+    const avgDailyWorkoutMins = sum14WorkoutMins / windowSize;
     const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
     const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
     
-    const avgDailyProtein = loggedDietDays > 0 ? (sum7Protein / loggedDietDays) : 0;
+    const avgDailyProtein = loggedDietDays > 0 ? (sum14Protein / loggedDietDays) : 0;
     const targetProtein = parseFloat(p.targetProtein) || 120;
     const hasEnoughProtein = avgDailyProtein >= (targetProtein * 0.8);
     
-    // Weight training check: total strength training minutes over the last 7 days is >= 90 mins (equivalent to 3 times a week, 30 mins each)
-    const hasWeightTraining = sum7WeightTrainingMins >= 90;
+    // Weight training check: benchmark ~90 mins/week (180 mins over 14 days)
+    const sum7WeightTrainingMins = sum14WeightTrainingMins / (windowSize / 7);
+    const weightTrainingFactor = sum7WeightTrainingMins > 0 ? Math.min(1.2, sum7WeightTrainingMins / 90) : 0;
+    const hasWeightTraining = sum7WeightTrainingMins > 0;
     
-    // Average weekly daily balance (intake - total output)
-    const avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
+    // Calculated daily calorie balance over 14-day window
+    let avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
+    
+    // Blend with empirical weight trend if historical actual weights exist (Empirical Real-World Feedback)
+    if (actualWeightLogs.length >= 3) {
+      actualWeightLogs.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      const firstW = actualWeightLogs[0];
+      const lastW = actualWeightLogs[actualWeightLogs.length - 1];
+      const daysDiff = Math.max(1, Math.round((new Date(lastW.dateStr) - new Date(firstW.dateStr)) / (1000 * 60 * 60 * 24)));
+      if (daysDiff >= 5) {
+        const empiricalSlopeWeightPerDay = (lastW.weight - firstW.weight) / daysDiff;
+        const empiricalBalance = empiricalSlopeWeightPerDay * 7700;
+        // Blend 40% calorie model + 60% empirical real weight trend
+        avgDailyBalance = (avgDailyBalance * 0.4) + (empiricalBalance * 0.6);
+      }
+    }
     
     // 7 Days Calculations
     const change7Weight = (avgDailyBalance * 7) / 7700; // 7,700 kcal = 1kg body weight
@@ -977,8 +1001,8 @@ document.addEventListener('DOMContentLoaded', () => {
       gain7Muscle = change7Weight * 0.35;
     } else if (hasEnoughProtein) {
       if (hasWeightTraining) {
-        // High protein + Weight training: weight training days build muscle (1.0 coeff), rest days build minor muscle (0.25 coeff)
-        const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
+        // High protein + Weight training: proportional muscle growth based on training volume
+        const avgMuscleGrowthCoeff = ((trainingDays * 1.0 + restDays * 0.25) / 7) * weightTrainingFactor;
         gain7Muscle = 0.15 * avgMuscleGrowthCoeff;
       } else {
         // High protein but NO weight training: maintains existing muscle mass, no new muscle growth
@@ -989,7 +1013,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gain7Muscle = 0;
     }
     
-    const change7Fat = change7Weight - gain7Muscle; // fat change = weight change - muscle change
+    const change7Fat = (change7Weight - gain7Muscle) * (avgDailyBalance < 0 ? 0.90 : 1.0); // fat change with short-term metabolic dampening
     
     const future7Weight = Math.max(30, currentWeight + change7Weight);
     const future7Muscle = Math.max(10, currentMuscle + gain7Muscle);
@@ -1007,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gain30Muscle = change30Weight * 0.35;
     } else if (hasEnoughProtein) {
       if (hasWeightTraining) {
-        const avgMuscleGrowthCoeff = (trainingDays * 1.0 + restDays * 0.25) / 7;
+        const avgMuscleGrowthCoeff = ((trainingDays * 1.0 + restDays * 0.25) / 7) * weightTrainingFactor;
         gain30Muscle = 0.6 * avgMuscleGrowthCoeff;
       } else {
         gain30Muscle = 0;
@@ -1016,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gain30Muscle = 0;
     }
     
-    const change30Fat = change30Weight - gain30Muscle;
+    const change30Fat = (change30Weight - gain30Muscle) * (avgDailyBalance < 0 ? 0.85 : 1.0); // fat change with metabolic adaptation factor
     
     const future30Weight = Math.max(30, currentWeight + change30Weight);
     const future30Muscle = Math.max(10, currentMuscle + gain30Muscle);
