@@ -2593,15 +2593,32 @@ document.addEventListener('DOMContentLoaded', () => {
     
     let avgDailyBalance = avgDailyIn - (tdee + avgDailyWorkoutOut);
     
-    // Empirical weight trend blending (40% calorie model + 60% empirical real weight trend)
-    if (actualWeightLogs.length >= 3) {
-      actualWeightLogs.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
-      const firstW = actualWeightLogs[0];
-      const lastW = actualWeightLogs[actualWeightLogs.length - 1];
-      const daysDiff = Math.max(1, Math.round((new Date(lastW.dateStr) - new Date(firstW.dateStr)) / (1000 * 60 * 60 * 24)));
-      if (daysDiff >= 5) {
-        const empiricalSlopeWeightPerDay = (lastW.weight - firstW.weight) / daysDiff;
+    // Blend with empirical weight trend using smoothed moving averages over up to 30 days to avoid single-day water weight distortions
+    const allDatesSorted = Object.keys(state.dailyLogs).sort();
+    const pastDates30 = allDatesSorted.filter(d => d <= currentActiveDate).slice(-30);
+    const actualWeightLogs30 = [];
+    pastDates30.forEach(d => {
+      const entry = state.dailyLogs[d];
+      if (entry && entry.weight !== undefined && entry.weight !== null && parseFloat(entry.weight) > 0) {
+        actualWeightLogs30.push({ dateStr: d, weight: parseFloat(entry.weight) });
+      }
+    });
+
+    if (actualWeightLogs30.length >= 4) {
+      actualWeightLogs30.sort((a, b) => a.dateStr.localeCompare(b.dateStr));
+      const first3 = actualWeightLogs30.slice(0, 3);
+      const last3 = actualWeightLogs30.slice(-3);
+      const avgFirstW = first3.reduce((sum, item) => sum + item.weight, 0) / first3.length;
+      const avgLastW = last3.reduce((sum, item) => sum + item.weight, 0) / last3.length;
+      
+      const firstDateObj = new Date(first3[0].dateStr + 'T00:00:00');
+      const lastDateObj = new Date(last3[last3.length - 1].dateStr + 'T00:00:00');
+      const daysDiff = Math.max(1, Math.round((lastDateObj - firstDateObj) / (1000 * 60 * 60 * 24)));
+      
+      if (daysDiff >= 7) {
+        const empiricalSlopeWeightPerDay = (avgLastW - avgFirstW) / daysDiff;
         const empiricalBalance = empiricalSlopeWeightPerDay * 7700;
+        // Blend 40% Calorie Intake/Deficit Model + 60% Empirical Real Weight Trend (Original design ratio)
         avgDailyBalance = (avgDailyBalance * 0.4) + (empiricalBalance * 0.6);
       }
     }
