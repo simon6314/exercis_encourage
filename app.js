@@ -2446,89 +2446,33 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const sortedLoggedDates = Object.keys(weightHistory).sort();
     
-    let todayWeight = initialWeight;
-    if (weightHistory[currentActiveDate] !== undefined) {
-      todayWeight = weightHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
+    function getSmoothedRecentVal(key, fallbackVal) {
+      const dActiveTemp = new Date(currentActiveDate + 'T00:00:00');
+      let sum = 0;
+      let count = 0;
+      for (let i = 0; i < 14; i++) {
+        const d = new Date(dActiveTemp);
+        d.setDate(dActiveTemp.getDate() - i);
+        const pad = (n) => String(n).padStart(2, '0');
+        const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        
+        const entry = state.dailyLogs[dateStr];
+        if (entry && entry[key] !== undefined && entry[key] !== null && parseFloat(entry[key]) > 0) {
+          sum += parseFloat(entry[key]);
+          count++;
+          if (count >= 3) break;
         }
       }
-      if (latestDate) todayWeight = weightHistory[latestDate];
+      return count > 0 ? (sum / count) : fallbackVal;
     }
+
+    const todayWeight = getSmoothedRecentVal('weight', initialWeight);
+    const todayMuscle = getSmoothedRecentVal('muscle', initialMuscle);
+    const todayFatPct = getSmoothedRecentVal('fatPercent', initialFatPct);
     
-    let todayMuscle = initialMuscle;
-    if (muscleHistory[currentActiveDate] !== undefined) {
-      todayMuscle = muscleHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
-        }
-      }
-      if (latestDate) todayMuscle = muscleHistory[latestDate];
-    }
-    
-    let todayFatPct = initialFatPct;
-    if (fatPercentHistory[currentActiveDate] !== undefined) {
-      todayFatPct = fatPercentHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
-        }
-      }
-      if (latestDate) todayFatPct = fatPercentHistory[latestDate];
-    }
-    
-    let todayWaist = 0;
-    if (waistHistory[currentActiveDate] !== undefined) {
-      todayWaist = waistHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
-        }
-      }
-      if (latestDate) todayWaist = waistHistory[latestDate];
-    }
-    
-    let todayChest = 0;
-    if (chestHistory[currentActiveDate] !== undefined) {
-      todayChest = chestHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
-        }
-      }
-      if (latestDate) todayChest = chestHistory[latestDate];
-    }
-    
-    let todayBiceps = 0;
-    if (bicepsHistory[currentActiveDate] !== undefined) {
-      todayBiceps = bicepsHistory[currentActiveDate];
-    } else if (sortedLoggedDates.length > 0) {
-      let latestDate = null;
-      for (let i = sortedLoggedDates.length - 1; i >= 0; i--) {
-        if (sortedLoggedDates[i] <= currentActiveDate) {
-          latestDate = sortedLoggedDates[i];
-          break;
-        }
-      }
-      if (latestDate) todayBiceps = bicepsHistory[latestDate];
-    }
+    let todayWaist = waistHistory[currentActiveDate] || 0;
+    let todayChest = chestHistory[currentActiveDate] || 0;
+    let todayBiceps = bicepsHistory[currentActiveDate] || 0;
     
     const baseSizesToday = calculateBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, todayWeight, todayFatPct);
     if (!todayWaist) todayWaist = parseFloat(baseSizesToday.waist);
@@ -2634,7 +2578,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (hasEnoughProtein) {
       if (hasWeightTraining) {
         const avgMuscleGrowthCoeff = ((trainingDays * 1.0 + restDays * 0.25) / 7) * weightTrainingFactor;
-        dailyProjMuscleChange = (0.15 * avgMuscleGrowthCoeff) / 7;
+        dailyProjMuscleChange = (0.6 * avgMuscleGrowthCoeff) / 30;
       } else {
         dailyProjMuscleChange = 0;
       }
