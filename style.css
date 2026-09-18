@@ -2306,6 +2306,30 @@ a:hover {
   position: relative;
   height: 180px;
   width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+.chart-canvas-container::-webkit-scrollbar {
+  height: 5px;
+}
+.chart-canvas-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 3px;
+}
+.chart-canvas-container::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.3);
+  border-radius: 3px;
+}
+.chart-canvas-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.6);
+}
+
+.chart-inner-canvas {
+  position: relative;
+  height: 100%;
+  min-width: 100%;
 }
 
 

@@ -182,6 +182,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sync Modal
     syncModal: document.getElementById('sync-modal'),
     btnCloseSync: document.getElementById('btn-close-sync'),
+    btnCancelSync: document.getElementById('btn-cancel-sync'),
     btnSyncDownload: document.getElementById('btn-sync-download'),
     btnSyncUpload: document.getElementById('btn-sync-upload'),
     settingsForm: document.getElementById('settings-form'),
@@ -303,25 +304,67 @@ document.addEventListener('DOMContentLoaded', () => {
     return state.dailyLogs[currentActiveDate];
   }
 
-  // --- POST Request Helper to send data to Apps Script Web App ---
-  async function postRequest(url, data) {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'text/plain;charset=utf-8'
-      },
-      body: JSON.stringify(data)
-    });
-    
-    if (!response.ok) {
-      throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+  // --- POST Request Helper to send data to Apps Script Web App with Timeout & AbortController ---
+  async function postRequest(url, data, timeoutMs = 15000, externalSignal = null) {
+    const controller = new AbortController();
+    let isUserCancelled = false;
+
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, timeoutMs);
+
+    const onExternalAbort = () => {
+      isUserCancelled = true;
+      controller.abort();
+    };
+
+    if (externalSignal) {
+      if (externalSignal.aborted) {
+        isUserCancelled = true;
+        controller.abort();
+      } else {
+        externalSignal.addEventListener('abort', onExternalAbort);
+      }
     }
-    
-    const resText = await response.text();
+
     try {
-      return JSON.parse(resText);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8'
+        },
+        body: JSON.stringify(data),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
+
+      if (!response.ok) {
+        throw new Error(`HTTP 錯誤！狀態碼: ${response.status}`);
+      }
+
+      const resText = await response.text();
+      try {
+        return JSON.parse(resText);
+      } catch (err) {
+        throw new Error('伺服器回傳格式不正確，無法解析為 JSON。');
+      }
     } catch (err) {
-      throw new Error('伺服器回傳格式不正確，無法解析為 JSON。');
+      clearTimeout(timeoutId);
+      if (externalSignal) {
+        externalSignal.removeEventListener('abort', onExternalAbort);
+      }
+
+      if (err.name === 'AbortError' || controller.signal.aborted) {
+        if (isUserCancelled || (externalSignal && externalSignal.aborted)) {
+          throw new Error('已取消同步作業。');
+        }
+        throw new Error('網路連線超時，請檢查網路或稍後重試');
+      }
+      throw err;
     }
   }
 
@@ -2774,6 +2817,33 @@ document.addEventListener('DOMContentLoaded', () => {
       const parts = d.split('-');
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     });
+
+    // Set inner canvas width to enable horizontal scroll when data is wide
+    const innerCanvases = document.querySelectorAll('.chart-inner-canvas');
+    let minWidthStyle = '100%';
+    if (activeChartRange === 30) {
+      minWidthStyle = `${Math.max(400, dates.length * 15)}px`;
+    } else if (activeChartRange === 90) {
+      minWidthStyle = `${Math.max(600, dates.length * 18)}px`;
+    }
+    innerCanvases.forEach(c => {
+      c.style.width = minWidthStyle;
+    });
+    
+    // Sync horizontal scrolling across all 6 trend charts
+    const chartContainers = document.querySelectorAll('.chart-canvas-container');
+    let isSyncingContainerScroll = false;
+    chartContainers.forEach(container => {
+      container.onscroll = () => {
+        if (isSyncingContainerScroll) return;
+        isSyncingContainerScroll = true;
+        const currentScroll = container.scrollLeft;
+        chartContainers.forEach(other => {
+          if (other !== container) other.scrollLeft = currentScroll;
+        });
+        isSyncingContainerScroll = false;
+      };
+    });
     
     // Destroy previous charts if they exist
     Object.keys(historyCharts).forEach(key => {
@@ -2802,13 +2872,13 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: color,
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.2,
-            pointRadius: activeChartRange === 7 ? 4 : (activeChartRange === 30 ? 2.5 : 0),
+            pointRadius: activeChartRange === 7 ? 4 : (activeChartRange === 30 ? 3 : 2.5),
             pointHoverRadius: 6,
             pointHitRadius: 20,
             tension: 0.3,
             segment: {
               borderDash: ctx => {
-                const limit = activeChartRange === 7 ? 3 : (activeChartRange === 30 ? 14 : 30);
+                const limit = activeChartRange === 7 ? 3 : (activeChartRange === 30 ? 14 : 90);
                 return ctx.p1DataIndex > limit ? [5, 5] : undefined;
               }
             }
@@ -2905,14 +2975,38 @@ document.addEventListener('DOMContentLoaded', () => {
     historyCharts.waist = createSingleChart('chart-waist', '腰圍', trends.waistTrend, '#06b6d4', 'cm', 'waist');
     historyCharts.chest = createSingleChart('chart-chest', '胸圍', trends.chestTrend, '#ec4899', 'cm', 'chest');
     historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', trends.bicepsTrend, '#f59e0b', 'cm', 'biceps');
+
+    // Auto-scroll containers to position the active date in view
+    setTimeout(() => {
+      const activeIdx = dates.indexOf(currentActiveDate);
+      if (activeIdx !== -1 && chartContainers.length > 0) {
+        const sampleContainer = chartContainers[0];
+        const scrollTarget = (activeIdx / dates.length) * sampleContainer.scrollWidth - sampleContainer.clientWidth / 2;
+        chartContainers.forEach(c => {
+          c.scrollLeft = Math.max(0, scrollTarget);
+        });
+      }
+    }, 50);
   }
 
   // --- Generate Date List for Chart ---
   function getPastDatesRange(endDateStr, daysCount) {
     const dates = [];
     const endDate = new Date(endDateStr + 'T00:00:00');
-    const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 30);
-    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 60);
+    let pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 90);
+    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 15);
+    
+    if (daysCount === 90) {
+      const logDates = Object.keys(state.dailyLogs).sort();
+      if (logDates.length > 0) {
+        const earliestDate = new Date(logDates[0] + 'T00:00:00');
+        const diffTime = endDate.getTime() - earliestDate.getTime();
+        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
+        if (diffDays > pastDays) {
+          pastDays = Math.min(365, diffDays); // Allow scrolling back up to 1 year if logs exist
+        }
+      }
+    }
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
@@ -4339,6 +4433,17 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
   }
 
   // --- Google Sheets Synchronization Modal Trigger ---
+  let activeSyncController = null;
+
+  function closeSyncModal() {
+    if (activeSyncController) {
+      activeSyncController.abort();
+      activeSyncController = null;
+      showToast('已取消同步作業。', 'info');
+    }
+    el.syncModal.classList.remove('active');
+  }
+
   el.syncSheetsBtn.addEventListener('click', () => {
     const sheetsUrl = state.profile.sheetsUrl;
     if (!sheetsUrl) {
@@ -4349,13 +4454,14 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     el.syncModal.classList.add('active');
   });
 
-  el.btnCloseSync.addEventListener('click', () => {
-    el.syncModal.classList.remove('active');
-  });
+  el.btnCloseSync.addEventListener('click', closeSyncModal);
+  if (el.btnCancelSync) {
+    el.btnCancelSync.addEventListener('click', closeSyncModal);
+  }
 
   el.syncModal.addEventListener('click', (e) => {
     if (e.target === el.syncModal) {
-      el.syncModal.classList.remove('active');
+      closeSyncModal();
     }
   });
 
@@ -4364,13 +4470,15 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     const sheetsUrl = state.profile.sheetsUrl;
     if (!sheetsUrl) return;
 
+    activeSyncController = new AbortController();
     el.btnSyncDownload.disabled = true;
+    el.btnSyncUpload.disabled = true;
     const originalText = el.btnSyncDownload.textContent;
     el.btnSyncDownload.textContent = '讀取下載中...';
 
     try {
       showToast('正在從雲端載入數據...', 'info');
-      const pullRes = await postRequest(sheetsUrl, { action: 'pullData' });
+      const pullRes = await postRequest(sheetsUrl, { action: 'pullData' }, 15000, activeSyncController.signal);
       
       if (pullRes.result === 'success') {
         // Overwrite Profile settings (except local-only values like sheetsUrl and geminiApiKey)
@@ -4440,9 +4548,11 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
       }
     } catch (err) {
       console.error('Download error:', err);
-      showToast('下載失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
+      showToast(err.message || '下載失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
     } finally {
+      activeSyncController = null;
       el.btnSyncDownload.disabled = false;
+      el.btnSyncUpload.disabled = false;
       el.btnSyncDownload.textContent = originalText;
     }
   });
@@ -4452,7 +4562,9 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
     const sheetsUrl = state.profile.sheetsUrl;
     if (!sheetsUrl) return;
 
+    activeSyncController = new AbortController();
     el.btnSyncUpload.disabled = true;
+    el.btnSyncDownload.disabled = true;
     const originalText = el.btnSyncUpload.textContent;
     el.btnSyncUpload.textContent = '上傳同步中...';
 
@@ -4467,7 +4579,7 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
       const pushRes = await postRequest(sheetsUrl, {
         action: 'pushData',
         data: syncPayload
-      });
+      }, 15000, activeSyncController.signal);
       
       if (pushRes.result === 'success') {
         el.syncModal.classList.remove('active');
@@ -4478,9 +4590,11 @@ JSON Array Object 結構格式如下，其中 intensity 欄位只能是 'low'、
       }
     } catch (err) {
       console.error('Upload error:', err);
-      showToast('上傳失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
+      showToast(err.message || '上傳失敗，請檢查 Apps Script 設定或雲端權限。', 'error');
     } finally {
+      activeSyncController = null;
       el.btnSyncUpload.disabled = false;
+      el.btnSyncDownload.disabled = false;
       el.btnSyncUpload.textContent = originalText;
     }
   });

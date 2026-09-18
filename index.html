@@ -1015,7 +1015,7 @@
           <div class="card-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; margin-bottom: 20px;">
             <div>
               <h2>歷史趨勢分析</h2>
-              <span class="card-subtitle">結合個人習慣與實測數據的聯動圖表</span>
+              <span class="card-subtitle">結合個人習慣與實測數據的聯動圖表 📍（可左右滑動查看歷史/未來趨勢）</span>
             </div>
             <div class="chart-controls" style="display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 4px; border-radius: 10px; gap: 4px;">
               <button id="btn-chart-range-7" class="chart-filter-btn active" onclick="changeChartRange(7)">7天趨勢</button>
@@ -1032,7 +1032,9 @@
                   <h4>體重 (Weight)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-weight"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-weight"></canvas>
+                  </div>
                 </div>
               </div>
               
@@ -1043,7 +1045,9 @@
                   <h4>肌肉量 (Muscle)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-muscle"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-muscle"></canvas>
+                  </div>
                 </div>
               </div>
               
@@ -1054,7 +1058,9 @@
                   <h4>體脂率 (Body Fat)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-fat"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-fat"></canvas>
+                  </div>
                 </div>
               </div>
               
@@ -1065,7 +1071,9 @@
                   <h4>腰圍 (Waist)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-waist"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-waist"></canvas>
+                  </div>
                 </div>
               </div>
               
@@ -1076,7 +1084,9 @@
                   <h4>胸圍 (Chest)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-chest"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-chest"></canvas>
+                  </div>
                 </div>
               </div>
               
@@ -1087,7 +1097,9 @@
                   <h4>手臂圍 (Biceps)</h4>
                 </div>
                 <div class="chart-canvas-container">
-                  <canvas id="chart-biceps"></canvas>
+                  <div class="chart-inner-canvas">
+                    <canvas id="chart-biceps"></canvas>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1353,6 +1365,11 @@
             上傳至雲端 (覆蓋雲端)
           </button>
         </div>
+        
+        <!-- Action 3: Cancel / Close -->
+        <button type="button" id="btn-cancel-sync" class="secondary-btn" style="width: 100%; justify-content: center; padding: 8px; font-size: 13px; border-radius: 8px; margin-top: 4px;">
+          ✖ 取消 / 關閉視窗
+        </button>
       </div>
     </div>
   </div>
