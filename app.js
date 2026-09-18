@@ -2822,26 +2822,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const innerCanvases = document.querySelectorAll('.chart-inner-canvas');
     let minWidthStyle = '100%';
     if (activeChartRange === 30) {
-      minWidthStyle = `${Math.max(400, dates.length * 15)}px`;
+      minWidthStyle = `${Math.max(300, Math.round(dates.length * 9.5))}px`;
     } else if (activeChartRange === 90) {
-      minWidthStyle = `${Math.max(600, dates.length * 18)}px`;
+      minWidthStyle = `${Math.max(450, Math.round(dates.length * 7.5))}px`;
     }
     innerCanvases.forEach(c => {
       c.style.width = minWidthStyle;
     });
     
-    // Sync horizontal scrolling across all 6 trend charts
+    // Sync horizontal scrolling smoothly across all 6 trend charts without bounce-back
     const chartContainers = document.querySelectorAll('.chart-canvas-container');
-    let isSyncingContainerScroll = false;
+    let activeScrollLeader = null;
+    let scrollLeaderTimer = null;
+
     chartContainers.forEach(container => {
       container.onscroll = () => {
-        if (isSyncingContainerScroll) return;
-        isSyncingContainerScroll = true;
+        if (activeScrollLeader && activeScrollLeader !== container) return;
+        
+        activeScrollLeader = container;
         const currentScroll = container.scrollLeft;
+
         chartContainers.forEach(other => {
-          if (other !== container) other.scrollLeft = currentScroll;
+          if (other !== container) {
+            other.scrollLeft = currentScroll;
+          }
         });
-        isSyncingContainerScroll = false;
+
+        clearTimeout(scrollLeaderTimer);
+        scrollLeaderTimer = setTimeout(() => {
+          activeScrollLeader = null;
+        }, 150);
       };
     });
     
@@ -2978,6 +2988,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Auto-scroll containers to position the active date in view
     setTimeout(() => {
+      if (activeScrollLeader) return;
       const activeIdx = dates.indexOf(currentActiveDate);
       if (activeIdx !== -1 && chartContainers.length > 0) {
         const sampleContainer = chartContainers[0];
