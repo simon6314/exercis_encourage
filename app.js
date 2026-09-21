@@ -2818,41 +2818,10 @@ document.addEventListener('DOMContentLoaded', () => {
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     });
 
-    // Set inner canvas width to enable horizontal scroll when data is wide
+    // Set inner canvas width to 100% (fit container without horizontal scrolling)
     const innerCanvases = document.querySelectorAll('.chart-inner-canvas');
-    let minWidthStyle = '100%';
-    if (activeChartRange === 30) {
-      minWidthStyle = `${Math.max(300, Math.round(dates.length * 9.5))}px`;
-    } else if (activeChartRange === 90) {
-      minWidthStyle = `${Math.max(450, Math.round(dates.length * 7.5))}px`;
-    }
     innerCanvases.forEach(c => {
-      c.style.width = minWidthStyle;
-    });
-    
-    // Sync horizontal scrolling smoothly across all 6 trend charts without bounce-back
-    const chartContainers = document.querySelectorAll('.chart-canvas-container');
-    let activeScrollLeader = null;
-    let scrollLeaderTimer = null;
-
-    chartContainers.forEach(container => {
-      container.onscroll = () => {
-        if (activeScrollLeader && activeScrollLeader !== container) return;
-        
-        activeScrollLeader = container;
-        const currentScroll = container.scrollLeft;
-
-        chartContainers.forEach(other => {
-          if (other !== container) {
-            other.scrollLeft = currentScroll;
-          }
-        });
-
-        clearTimeout(scrollLeaderTimer);
-        scrollLeaderTimer = setTimeout(() => {
-          activeScrollLeader = null;
-        }, 150);
-      };
+      c.style.width = '100%';
     });
     
     // Destroy previous charts if they exist
@@ -2882,13 +2851,13 @@ document.addEventListener('DOMContentLoaded', () => {
             pointBackgroundColor: color,
             pointBorderColor: '#ffffff',
             pointBorderWidth: 1.2,
-            pointRadius: activeChartRange === 7 ? 4 : (activeChartRange === 30 ? 3 : 2.5),
-            pointHoverRadius: 6,
-            pointHitRadius: 20,
+            pointRadius: activeChartRange === 7 ? 4 : (activeChartRange === 30 ? 2.5 : 0),
+            pointHoverRadius: 5,
+            pointHitRadius: 15,
             tension: 0.3,
             segment: {
               borderDash: ctx => {
-                const limit = activeChartRange === 7 ? 3 : (activeChartRange === 30 ? 14 : 90);
+                const limit = activeChartRange === 7 ? 3 : (activeChartRange === 30 ? 14 : 60);
                 return ctx.p1DataIndex > limit ? [5, 5] : undefined;
               }
             }
@@ -2949,6 +2918,7 @@ document.addEventListener('DOMContentLoaded', () => {
               },
               ticks: {
                 color: '#64748b',
+                maxTicksLimit: activeChartRange === 7 ? 7 : (activeChartRange === 30 ? 10 : 10),
                 font: {
                   family: 'Plus Jakarta Sans',
                   size: 9
@@ -2985,39 +2955,15 @@ document.addEventListener('DOMContentLoaded', () => {
     historyCharts.waist = createSingleChart('chart-waist', '腰圍', trends.waistTrend, '#06b6d4', 'cm', 'waist');
     historyCharts.chest = createSingleChart('chart-chest', '胸圍', trends.chestTrend, '#ec4899', 'cm', 'chest');
     historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', trends.bicepsTrend, '#f59e0b', 'cm', 'biceps');
-
-    // Auto-scroll containers to position the active date in view
-    setTimeout(() => {
-      if (activeScrollLeader) return;
-      const activeIdx = dates.indexOf(currentActiveDate);
-      if (activeIdx !== -1 && chartContainers.length > 0) {
-        const sampleContainer = chartContainers[0];
-        const scrollTarget = (activeIdx / dates.length) * sampleContainer.scrollWidth - sampleContainer.clientWidth / 2;
-        chartContainers.forEach(c => {
-          c.scrollLeft = Math.max(0, scrollTarget);
-        });
-      }
-    }, 50);
   }
 
   // --- Generate Date List for Chart ---
   function getPastDatesRange(endDateStr, daysCount) {
     const dates = [];
     const endDate = new Date(endDateStr + 'T00:00:00');
-    let pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 90);
-    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 15);
-    
-    if (daysCount === 90) {
-      const logDates = Object.keys(state.dailyLogs).sort();
-      if (logDates.length > 0) {
-        const earliestDate = new Date(logDates[0] + 'T00:00:00');
-        const diffTime = endDate.getTime() - earliestDate.getTime();
-        const diffDays = Math.ceil(diffTime / (1000 * 3600 * 24));
-        if (diffDays > pastDays) {
-          pastDays = Math.min(365, diffDays); // Allow scrolling back up to 1 year if logs exist
-        }
-      }
-    }
+    // For 90-day mode: past 60 days (2 months) and future 30 days (1 month)
+    const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 60);
+    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 30);
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
