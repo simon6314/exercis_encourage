@@ -232,6 +232,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tdeeCalibratedBadge: document.getElementById('tdee-calibrated-badge'),
     adaptiveTdeeInfo: document.getElementById('adaptive-tdee-info'),
     adaptiveTdeeOffsetVal: document.getElementById('adaptive-tdee-offset-val'),
+    adaptiveTdeeDetail: document.getElementById('adaptive-tdee-detail'),
     aiCoachDeepBox: document.getElementById('ai-coach-deep-box'),
     bodyShapeAvatar: document.getElementById('body-shape-avatar'),
     btnToggleScan: document.getElementById('btn-toggle-scan'),
@@ -424,89 +425,113 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // --- Adaptive TDEE Calibrator ---
-  function calculateAdaptiveTdeeOffset() {
-    const allDatesSorted = Object.keys(state.dailyLogs).sort();
-    
-    // We need days that have both logged weight AND diet logs (to estimate calorie intake)
-    const validWeightDates = allDatesSorted.filter(d => {
-      const entry = state.dailyLogs[d];
-      return entry && 
-             entry.weight !== undefined && 
-             entry.weight !== null && 
-             entry.weight > 0 && 
-             entry.diet && 
-             entry.diet.length > 0;
-    });
+  // --- Base activity: fixed 1.2 (non-exercise). Logged workouts are added on top. ---
+  const BASE_ACTIVITY_FACTOR = 1.2;
+  const CAL_WINDOW_DAYS = 28;      // 校正窗口：最近 28 天
+  const CAL_MIN_DIET_DAYS = 14;    // 至少 14 天有飲食紀錄才校正
+  const CAL_MIN_WEIGHT_POINTS = 7; // 且這些有飲食紀錄的日子至少 7 筆體重
+  const KCAL_PER_KG_FAT = 7700;    // 約 1 kg 體脂肪 ≈ 7700 kcal
 
-    // We need at least 7 days of actual logged weight/diet to perform adaptive calibration
-    if (validWeightDates.length < 7) {
-      return 0;
-    }
-
-    const firstDate = validWeightDates[0];
-    const lastDate = validWeightDates[validWeightDates.length - 1];
-
-    const firstWeight = parseFloat(state.dailyLogs[firstDate].weight);
-    const lastWeight = parseFloat(state.dailyLogs[lastDate].weight);
-    const actualWeightChange = lastWeight - firstWeight;
-
-    // Calculate total expected balance and TDEE based on formula for dates in range
-    const dStart = new Date(firstDate + 'T00:00:00');
-    const dEnd = new Date(lastDate + 'T00:00:00');
-    const diffDays = Math.round((dEnd - dStart) / (1000 * 60 * 60 * 24)) + 1;
-
-    if (diffDays < 7) {
-      return 0;
-    }
-
-    let totalIn = 0;
-    let totalWorkoutOut = 0;
-    let baseTdeeSum = 0;
-
-    const bmr = calculateBmr();
-    const activityFactor = parseFloat(state.profile.activity) || 1.2;
-    const baseTdee = Math.round(bmr * activityFactor);
-
-    for (let i = 0; i < diffDays; i++) {
-      const d = new Date(dStart);
-      d.setDate(dStart.getDate() + i);
-      const pad = (n) => String(n).padStart(2, '0');
-      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-      
-      const entry = state.dailyLogs[dateStr];
-      if (entry) {
-        const hasDietLogged = entry.diet && entry.diet.length > 0;
-        const dayIn = hasDietLogged ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : baseTdee;
-        const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        const dayWorkoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const dayDoubleCounted = Math.round((baseTdee / 1440) * dayWorkoutMins);
-        
-        totalIn += dayIn;
-        totalWorkoutOut += Math.max(0, dayWorkoutOut - dayDoubleCounted);
-        baseTdeeSum += baseTdee;
-      } else {
-        totalIn += baseTdee;
-        baseTdeeSum += baseTdee;
-      }
-    }
-
-    const calorieDifference = totalIn - baseTdeeSum - totalWorkoutOut;
-    const expectedWeightChangeCal = actualWeightChange * 7700;
-    
-    let offset = (calorieDifference - expectedWeightChangeCal) / (diffDays || 1);
-
-    if (isNaN(offset)) return 0;
-    offset = Math.max(-500, Math.min(500, offset));
-    return Math.round(offset);
+  function getBaseTdee() {
+    return Math.round(calculateBmr() * BASE_ACTIVITY_FACTOR);
   }
 
+  // 運動消耗扣除「靜息部分」（BMR/1440 每分鐘），這段已包含在基礎消耗中，避免重複計算
+  function workoutNetKcal(workouts) {
+    if (!workouts || workouts.length === 0) return 0;
+    const restPerMin = calculateBmr() / 1440;
+    return workouts.reduce((sum, w) => {
+      const kcal = parseFloat(w.calories) || 0;
+      const mins = parseFloat(w.duration) || 0;
+      return sum + Math.max(0, kcal - restPerMin * mins);
+    }, 0);
+  }
+
+  // --- Adaptive TDEE Calibrator ---
+  // 只採用「有飲食紀錄」的日子：平均每日能量差 vs 體重趨勢（最小平方法斜率）
+  // 校正值 = 平均能量差 − 體重趨勢 × 7700，加到基礎消耗上
+  function computeTdeeCalibration() {
+    const result = { ok: false, offset: 0, dietDays: 0, weightPoints: 0, reason: '' };
+    const keys = Object.keys(state.dailyLogs).sort();
+    if (keys.length === 0) {
+      result.reason = '尚無紀錄';
+      return result;
+    }
+
+    const endDate = new Date(keys[keys.length - 1] + 'T00:00:00');
+    const startDate = new Date(endDate);
+    startDate.setDate(endDate.getDate() - (CAL_WINDOW_DAYS - 1));
+    const pad = (n) => String(n).padStart(2, '0');
+    const base = getBaseTdee();
+
+    let dietDays = 0;
+    let balanceSum = 0;
+    const weightPts = [];
+
+    for (let i = 0; i < CAL_WINDOW_DAYS; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const dateStr = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const entry = state.dailyLogs[dateStr];
+      // 沒有飲食紀錄的日子不納入校正（不假設攝取 = TDEE）
+      if (!entry || !entry.diet || entry.diet.length === 0) continue;
+
+      const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      const dayOut = workoutNetKcal(entry.workouts);
+      dietDays++;
+      balanceSum += dayIn - base - dayOut;
+
+      const w = parseFloat(entry.weight);
+      if (w > 0) weightPts.push({ x: i, y: w });
+    }
+
+    result.dietDays = dietDays;
+    result.weightPoints = weightPts.length;
+
+    if (dietDays < CAL_MIN_DIET_DAYS) {
+      result.reason = `需至少 ${CAL_MIN_DIET_DAYS} 天有飲食紀錄（近 ${CAL_WINDOW_DAYS} 天目前 ${dietDays} 天）`;
+      return result;
+    }
+    if (weightPts.length < CAL_MIN_WEIGHT_POINTS) {
+      result.reason = `需至少 ${CAL_MIN_WEIGHT_POINTS} 筆有飲食紀錄日的體重（目前 ${weightPts.length} 筆）`;
+      return result;
+    }
+
+    // 最小平方法：體重趨勢斜率（kg/天）
+    const n = weightPts.length;
+    const mx = weightPts.reduce((s, p) => s + p.x, 0) / n;
+    const my = weightPts.reduce((s, p) => s + p.y, 0) / n;
+    let num = 0, den = 0;
+    for (const p of weightPts) {
+      num += (p.x - mx) * (p.y - my);
+      den += (p.x - mx) * (p.x - mx);
+    }
+    if (den === 0) {
+      result.reason = '體重紀錄日期不足以計算趨勢';
+      return result;
+    }
+    const slope = num / den;
+
+    const avgBalance = balanceSum / dietDays;
+    let offset = avgBalance - slope * KCAL_PER_KG_FAT;
+    if (!isFinite(offset)) {
+      result.reason = '計算異常';
+      return result;
+    }
+    offset = Math.round(Math.max(-500, Math.min(500, offset)));
+
+    result.ok = true;
+    result.offset = offset;
+    return result;
+  }
+
+  function calculateAdaptiveTdeeOffset() {
+    return computeTdeeCalibration().offset;
+  }
+
+  // TDEE = 基礎消耗（BMR × 1.2）+ 校正值；運動另外依紀錄加入
   function calculateTdee() {
-    const bmr = calculateBmr();
-    const factor = parseFloat(state.profile.activity) || 1.2;
-    const baseTdee = Math.round(bmr * factor);
-    const offset = calculateAdaptiveTdeeOffset();
-    return baseTdee + offset;
+    return getBaseTdee() + calculateAdaptiveTdeeOffset();
   }
 
   // --- Base Body Size Estimator Formula ---
@@ -631,9 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let totalCalBalance = 0;
     let loggedDeficitDays = 0;
     
-    const bmr = calculateBmr();
-    const activityFactor = parseFloat(state.profile.activity) || 1.2;
-    const baseTdee = Math.round(bmr * activityFactor) + calculateAdaptiveTdeeOffset();
+    const baseTdee = calculateTdee();
 
     for (let i = 0; i < 14; i++) {
       const d = new Date(dStart);
@@ -646,8 +669,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry.weight !== undefined && entry.weight !== null && entry.weight > 0) {
           recentWeightLogs.push(parseFloat(entry.weight));
         }
-        const dayIn = entry.diet ? entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        const dayWorkoutOut = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
+        if (!entry.diet || entry.diet.length === 0) continue; // 沒有飲食紀錄的日子不納入
+        const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+        const dayWorkoutOut = workoutNetKcal(entry.workouts);
         const balance = dayIn - (baseTdee + dayWorkoutOut);
         
         if (balance < -100) {
@@ -805,7 +829,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+        const doubleCounted = Math.round((calculateBmr() / 1440) * workoutMins);
         // Deficit = (TDEE + Workout - DoubleCounted) - Intake
         const dailyDeficit = (tdee + workout - doubleCounted) - intake;
         totalDeficit += dailyDeficit;
@@ -823,7 +847,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+        const doubleCounted = Math.round((calculateBmr() / 1440) * workoutMins);
         const dailySurplus = intake - (tdee + workout - doubleCounted);
         if (dailySurplus > 0) {
           weekendSurplus += dailySurplus;
@@ -975,7 +999,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const workoutOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const workoutMins = log.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
-    const doubleCounted = Math.round((tdee / 1440) * workoutMins);
+    const doubleCounted = Math.round((calculateBmr() / 1440) * workoutMins);
     const totalOut = tdee + workoutOut - doubleCounted;
     const netDeficit = totalOut - totalIn; 
     
@@ -1025,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const avgDailyIn = loggedDietDays > 0 ? (sum14In / loggedDietDays) : tdee;
     const avgDailyWorkoutOutRaw = sum14WorkoutOut / windowSize;
     const avgDailyWorkoutMins = sum14WorkoutMins / windowSize;
-    const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
+    const avgDoubleCounted = Math.round((calculateBmr() / 1440) * avgDailyWorkoutMins);
     const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
     
     const avgDailyProtein = loggedDietDays > 0 ? (sum14Protein / loggedDietDays) : 0;
@@ -2568,7 +2592,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const avgDailyIn = loggedDietDays > 0 ? (sum14In / loggedDietDays) : tdee;
     const avgDailyWorkoutOutRaw = sum14WorkoutOut / windowSize;
     const avgDailyWorkoutMins = sum14WorkoutMins / windowSize;
-    const avgDoubleCounted = Math.round((tdee / 1440) * avgDailyWorkoutMins);
+    const avgDoubleCounted = Math.round((calculateBmr() / 1440) * avgDailyWorkoutMins);
     const avgDailyWorkoutOut = Math.max(0, avgDailyWorkoutOutRaw - avgDoubleCounted);
     
     const avgDailyProtein = loggedDietDays > 0 ? (sum14Protein / loggedDietDays) : 0;
@@ -3307,21 +3331,23 @@ document.addEventListener('DOMContentLoaded', () => {
     el.profileBmrDisplay.textContent = `${Math.round(calculateBmr())} kcal`;
     
     // Dynamic TDEE Calibration UI feedback
-    const tdeeOffset = calculateAdaptiveTdeeOffset();
-    if (tdeeOffset !== 0) {
-      if (el.tdeeCalibratedBadge) el.tdeeCalibratedBadge.style.display = 'inline-block';
-      if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
-      if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = (tdeeOffset >= 0 ? '+' : '') + tdeeOffset;
-    } else {
-      if (el.tdeeCalibratedBadge) el.tdeeCalibratedBadge.style.display = 'none';
-      if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'none';
+    const calib = computeTdeeCalibration();
+    const offsetText = `校正 ${calib.offset >= 0 ? '+' : ''}${calib.offset} kcal`;
+    if (el.tdeeCalibratedBadge) {
+      el.tdeeCalibratedBadge.textContent = offsetText;
+      el.tdeeCalibratedBadge.style.display = calib.ok ? 'inline-block' : 'none';
     }
+    if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
+    if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = calib.ok ? offsetText : '尚未校正';
+    if (el.adaptiveTdeeDetail) el.adaptiveTdeeDetail.textContent = calib.ok
+      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重計算；沒有飲食紀錄的日子不納入。`
+      : `${calib.reason}。目前使用基礎消耗（BMR × 1.2）加上運動消耗。`;
     
     // 3. Calorie Ring Totals
     const totalIn = log.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const totalOut = log.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
     const totalWorkoutMins = log.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
-    const doubleCounted = Math.round((tdee / 1440) * totalWorkoutMins);
+    const doubleCounted = Math.round((calculateBmr() / 1440) * totalWorkoutMins);
     const netCalories = totalIn - (tdee + totalOut - doubleCounted);
     
     el.totalCalIn.textContent = `${Math.round(totalIn)} kcal`;
