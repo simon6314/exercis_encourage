@@ -836,9 +836,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     
-    // Ensure deposit isn't negative for UI display (though internally it could be)
-    const displayDeposit = Math.max(0, Math.round(totalDeficit));
+    // 保留負數：平日超支會先抵銷存款，負數代表本週已透支
+    const displayDeposit = Math.round(totalDeficit);
     el.bankDepositVal.textContent = `${displayDeposit} kcal`;
+    el.bankDepositVal.style.color = displayDeposit < 0 ? '#ef4444' : 'var(--accent-green)';
     
     // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
     weekendDays.forEach(d => {
@@ -909,7 +910,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     } else {
       // Weekdays
-      if (displayDeposit > 0) {
+      if (displayDeposit < 0) {
+        msgHTML = `⚠️ <strong>本週已透支 <span style="color: #ef4444;">${-displayDeposit} kcal</span>。</strong><br>週一至週五的超支會先抵銷之後的赤字，多運動或少攝取就能慢慢補回來。`;
+      } else if (displayDeposit > 0) {
         const weekendDailyBudget = Math.round(displayDeposit / 2);
         msgHTML = `💪 <strong>積沙成塔中！</strong>本週已為週末大餐存下 <strong style="color: var(--accent-green);">${displayDeposit} kcal</strong>。<br>預估這週末<strong>每天可以多吃 ${weekendDailyBudget} kcal</strong> 的美食！繼續保持！`;
       } else {
