@@ -429,7 +429,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const BASE_ACTIVITY_FACTOR = 1.2;
   const CAL_WINDOW_DAYS = 28;      // 校正窗口：最近 28 天
   const CAL_MIN_DIET_DAYS = 14;    // 至少 14 天有飲食紀錄才校正
-  const CAL_MIN_WEIGHT_POINTS = 7; // 且這些有飲食紀錄的日子至少 7 筆體重
+  const CAL_MIN_WEIGHT_POINTS = 14; // 且這些有飲食紀錄的日子至少 14 筆體重（水分波動大，筆數太少斜率不可靠）
+  const CAL_SMOOTH_HALF_WINDOW = 3; // 體重以前後各 3 天（共 7 天）的平均做趨勢，降低單日波動
   const KCAL_PER_KG_FAT = 7700;    // 約 1 kg 體脂肪 ≈ 7700 kcal
 
   function getBaseTdee() {
@@ -468,6 +469,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let balanceSum = 0;
     const weightPts = [];
 
+    // 先收集整個窗口內所有有體重的日子（不論有沒有飲食紀錄），供移動平均使用
+    const wByIdx = [];
+    for (let i = 0; i < CAL_WINDOW_DAYS; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      const ds = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+      const e = state.dailyLogs[ds];
+      const wv = e ? parseFloat(e.weight) : NaN;
+      wByIdx[i] = wv > 0 ? wv : null;
+    }
+
     for (let i = 0; i < CAL_WINDOW_DAYS; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
@@ -481,8 +493,16 @@ document.addEventListener('DOMContentLoaded', () => {
       dietDays++;
       balanceSum += dayIn - base - dayOut;
 
-      const w = parseFloat(entry.weight);
-      if (w > 0) weightPts.push({ x: i, y: w });
+      // 7 天移動平均：取前後各 CAL_SMOOTH_HALF_WINDOW 天內有記錄的體重平均
+      if (wByIdx[i] !== null) {
+        const lo = Math.max(0, i - CAL_SMOOTH_HALF_WINDOW);
+        const hi = Math.min(CAL_WINDOW_DAYS - 1, i + CAL_SMOOTH_HALF_WINDOW);
+        let sum = 0, cnt = 0;
+        for (let j = lo; j <= hi; j++) {
+          if (wByIdx[j] !== null) { sum += wByIdx[j]; cnt++; }
+        }
+        weightPts.push({ x: i, y: sum / cnt });
+      }
     }
 
     result.dietDays = dietDays;
@@ -3342,7 +3362,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
     if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = calib.ok ? offsetText : '尚未校正';
     if (el.adaptiveTdeeDetail) el.adaptiveTdeeDetail.textContent = calib.ok
-      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重計算；沒有飲食紀錄的日子不納入。`
+      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重（7 天移動平均）計算；沒有飲食紀錄的日子不納入。`
       : `${calib.reason}。目前使用基礎消耗（BMR × 1.2）加上運動消耗。`;
     
     // 3. Calorie Ring Totals
