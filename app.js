@@ -2863,10 +2863,13 @@ document.addEventListener('DOMContentLoaded', () => {
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     });
 
-    // Set inner canvas width to 100% (fit container without horizontal scrolling)
+    // 3 個月趨勢：每個資料點給固定寬度，手機上可左右滑動；7 / 30 天維持符合容器寬度
+    const PX_PER_POINT = activeChartRange === 90 ? 8 : 0;
     const innerCanvases = document.querySelectorAll('.chart-inner-canvas');
     innerCanvases.forEach(c => {
-      c.style.width = '100%';
+      const containerW = c.parentElement ? c.parentElement.clientWidth : 0;
+      const needW = dates.length * PX_PER_POINT;
+      c.style.width = (PX_PER_POINT && needW > containerW) ? needW + 'px' : '100%';
     });
     
     // Destroy previous charts if they exist
@@ -3000,6 +3003,11 @@ document.addEventListener('DOMContentLoaded', () => {
     historyCharts.waist = createSingleChart('chart-waist', '腰圍', trends.waistTrend, '#06b6d4', 'cm', 'waist');
     historyCharts.chest = createSingleChart('chart-chest', '胸圍', trends.chestTrend, '#ec4899', 'cm', 'chest');
     historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', trends.bicepsTrend, '#f59e0b', 'cm', 'biceps');
+
+    // 預設捲到最右邊（最近兩個月），不用先往左找
+    document.querySelectorAll('.chart-canvas-container').forEach(c => {
+      c.scrollLeft = c.scrollWidth;
+    });
   }
 
   // --- Generate Date List for Chart ---
