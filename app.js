@@ -2867,12 +2867,25 @@ document.addEventListener('DOMContentLoaded', () => {
     // 今天之後：使用推估值（仍以虛線顯示，見 segment 設定）
     // 今天沒有紀錄時，用推估值銜接，避免斷線
     function actualSeries(field, trendArr) {
+      // 推估線平移到「今天顯示的數值」上，避免推估的起點（平滑後的趨勢）和今天的實際值對不上而跳動
+      const todayIdx = dates.indexOf(currentActiveDate);
+      const todayLog = state.dailyLogs[currentActiveDate];
+      const todayActual = todayLog ? parseFloat(todayLog[field]) : NaN;
+      const todayVal = todayActual > 0 ? todayActual : (todayIdx >= 0 ? trendArr[todayIdx] : NaN);
+      // 推估線是線性外推：今天的推估基準 = 明天的推估值 − 每日變化量
+      let delta = 0;
+      if (todayIdx >= 0 && todayIdx + 2 < trendArr.length && isFinite(todayVal)) {
+        const dailyStep = trendArr[todayIdx + 2] - trendArr[todayIdx + 1];
+        const projBase = trendArr[todayIdx + 1] - dailyStep;
+        delta = todayVal - projBase;
+      }
+
       return dates.map((d, i) => {
-        if (d > currentActiveDate) return trendArr[i];
+        if (d > currentActiveDate) return parseFloat((trendArr[i] + delta).toFixed(2));
         const e = state.dailyLogs[d];
         const v = e ? parseFloat(e[field]) : NaN;
         if (v > 0) return parseFloat(v.toFixed(2));
-        return d === currentActiveDate ? trendArr[i] : null;
+        return d === currentActiveDate ? parseFloat(trendArr[i].toFixed(2)) : null;
       });
     }
 
