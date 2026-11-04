@@ -2049,7 +2049,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Define cropped thumbnail styling (both are 3x3 grids)
         const isMale = gender === 'male';
-        const imgUrl = isMale ? './male_body_matrix.svg' : './female_body_shapes.png';
+        const imgUrl = isMale ? './male_body_shapes_10_30_grid.png' : './female_body_shapes.png';
         const bgSize = '300% 300%';
         
         const col = idx % 3;
