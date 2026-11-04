@@ -2049,7 +2049,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Define cropped thumbnail styling (both are 3x3 grids)
         const isMale = gender === 'male';
-        const imgUrl = isMale ? './male_body_shapes_10_30_grid.png' : './female_body_shapes.png';
+        const imgUrl = isMale ? './male_body_matrix_clean.png' : './female_body_shapes.png';
         const bgSize = '300% 300%';
         
         const col = idx % 3;
@@ -2058,9 +2058,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cell.innerHTML = `
           <span class="num-label">#${idx + 1} ${p.label}</span>
-          <div class="matrix-thumbnail" style="width: 48px; height: 68px; background-image: url('${imgUrl}'); background-repeat: no-repeat; background-size: ${bgSize}; background-position: ${bgPos}; border-radius: 6px; margin: 4px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);"></div>
+          <div class="matrix-thumbnail" style="width: 92px; height: 92px; background-image: url('${imgUrl}'); background-repeat: no-repeat; background-size: ${bgSize}; background-position: ${bgPos}; border-radius: 6px; margin: 4px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);"></div>
           <span class="name-label">${p.name.split(' (')[0]}</span>
-          <span class="stats-label">脂: ${p.fatPercent}%</span>
         `;
         
         cell.addEventListener('click', () => {
