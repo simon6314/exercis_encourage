@@ -836,23 +836,24 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    const tdee = calculateTdee();
+    // 銀行使用「基礎消耗（不含校正值）」，避免歷史存款隨校正值改變
+    const baseTdee = getBaseTdee();
     const { weekDays, weekendDays } = getWeekRange(currentActiveDate);
-    
+
     let totalDeficit = 0;
     let weekendSurplus = 0;
-    
-    // 1. Calculate Monday-Friday deficits
+
+    // 1. 週一至週五：赤字 = (基礎消耗 + 運動淨消耗) − 攝取
+    //    沒有飲食紀錄但有運動的日子：假設攝取 = 基礎消耗，運動淨消耗直接計為存款
     weekDays.forEach(d => {
       const entry = state.dailyLogs[d];
-      if (entry && entry.diet && entry.diet.length > 0) {
+      if (!entry) return;
+      const workoutNet = workoutNetKcal(entry.workouts);
+      if (entry.diet && entry.diet.length > 0) {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-        const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const doubleCounted = Math.round((calculateBmr() / 1440) * workoutMins);
-        // Deficit = (TDEE + Workout - DoubleCounted) - Intake
-        const dailyDeficit = (tdee + workout - doubleCounted) - intake;
-        totalDeficit += dailyDeficit;
+        totalDeficit += (baseTdee + workoutNet) - intake;
+      } else if (workoutNet > 0) {
+        totalDeficit += workoutNet;
       }
     });
     
@@ -862,14 +863,12 @@ document.addEventListener('DOMContentLoaded', () => {
     el.bankDepositVal.style.color = displayDeposit < 0 ? '#ef4444' : 'var(--accent-green)';
     
     // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
+    // 週末：攝取超過（基礎消耗 + 運動淨消耗）的部分才計入提領；沒有飲食紀錄的日子不計
     weekendDays.forEach(d => {
       const entry = state.dailyLogs[d];
       if (entry && entry.diet && entry.diet.length > 0) {
         const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-        const workout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
-        const workoutMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const doubleCounted = Math.round((calculateBmr() / 1440) * workoutMins);
-        const dailySurplus = intake - (tdee + workout - doubleCounted);
+        const dailySurplus = intake - (baseTdee + workoutNetKcal(entry.workouts));
         if (dailySurplus > 0) {
           weekendSurplus += dailySurplus;
         }
