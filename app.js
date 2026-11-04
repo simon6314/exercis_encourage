@@ -2863,6 +2863,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return `${parseInt(parts[1])}/${parseInt(parts[2])}`;
     });
 
+    // 只取每個日期的實際紀錄值（沒有紀錄為 null）
+    function actualSeries(field) {
+      return dates.map(d => {
+        const e = state.dailyLogs[d];
+        const v = e ? parseFloat(e[field]) : NaN;
+        return v > 0 ? parseFloat(v.toFixed(2)) : null;
+      });
+    }
+
     // 3 個月趨勢：每個資料點給固定寬度，手機上可左右滑動；7 / 30 天維持符合容器寬度
     const PX_PER_POINT = activeChartRange === 90 ? 8 : 0;
     const innerCanvases = document.querySelectorAll('.chart-inner-canvas');
@@ -2893,6 +2902,7 @@ document.addEventListener('DOMContentLoaded', () => {
           datasets: [{
             label: label,
             data: data,
+            spanGaps: true, // 跨過沒有紀錄的日子，直接連接前後兩筆真實數據
             borderColor: color,
             backgroundColor: 'rgba(255, 255, 255, 0.01)',
             borderWidth: 2.5,
@@ -2997,12 +3007,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // Instantiate all 6 independent charts
-    historyCharts.weight = createSingleChart('chart-weight', '體重', trends.weightTrend, '#8b5cf6', 'kg', 'weight');
-    historyCharts.muscle = createSingleChart('chart-muscle', '肌肉量', trends.muscleTrend, '#10b981', 'kg', 'muscle');
-    historyCharts.fat = createSingleChart('chart-fat', '體脂率', trends.fatPercentTrend, '#ff6b00', '%', 'fat');
-    historyCharts.waist = createSingleChart('chart-waist', '腰圍', trends.waistTrend, '#06b6d4', 'cm', 'waist');
-    historyCharts.chest = createSingleChart('chart-chest', '胸圍', trends.chestTrend, '#ec4899', 'cm', 'chest');
-    historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', trends.bicepsTrend, '#f59e0b', 'cm', 'biceps');
+    // 圖表只畫「真的有記錄」的數值；沒記錄的日子為 null，線段直接跨過去（spanGaps），不再用假資料補線
+    historyCharts.weight = createSingleChart('chart-weight', '體重', actualSeries('weight'), '#8b5cf6', 'kg', 'weight');
+    historyCharts.muscle = createSingleChart('chart-muscle', '肌肉量', actualSeries('muscle'), '#10b981', 'kg', 'muscle');
+    historyCharts.fat = createSingleChart('chart-fat', '體脂率', actualSeries('fatPercent'), '#ff6b00', '%', 'fat');
+    historyCharts.waist = createSingleChart('chart-waist', '腰圍', actualSeries('waist'), '#06b6d4', 'cm', 'waist');
+    historyCharts.chest = createSingleChart('chart-chest', '胸圍', actualSeries('chest'), '#ec4899', 'cm', 'chest');
+    historyCharts.biceps = createSingleChart('chart-biceps', '手臂圍', actualSeries('biceps'), '#f59e0b', 'cm', 'biceps');
 
     // 預設捲到最右邊（最近兩個月），不用先往左找
     document.querySelectorAll('.chart-canvas-container').forEach(c => {
