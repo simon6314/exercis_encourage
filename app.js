@@ -3044,7 +3044,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const endDate = new Date(endDateStr + 'T00:00:00');
     // For 90-day mode: past 60 days (2 months) and future 30 days (1 month)
     const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 60);
-    const futureDays = daysCount === 7 ? 7 : 30; // 未來刻度與首頁的 7 天、30 天預測對齊
+    const futureDays = daysCount === 7 ? 7 : (daysCount === 30 ? 30 : 60); // 90 天模式未來畫 2 個月
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
