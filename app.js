@@ -1127,7 +1127,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (hasWeightTraining) {
         // High protein + Weight training: proportional muscle growth based on training volume
         const avgMuscleGrowthCoeff = ((trainingDays * 1.0 + restDays * 0.25) / 7) * weightTrainingFactor;
-        gain7Muscle = 0.15 * avgMuscleGrowthCoeff;
+        gain7Muscle = (0.6 * avgMuscleGrowthCoeff) * (7 / 30); // 與趨勢圖同一日速率
       } else {
         // High protein but NO weight training: maintains existing muscle mass, no new muscle growth
         gain7Muscle = 0;
@@ -1138,7 +1138,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const minFatPctFloor = (p.gender === 'female' ? 10.0 : 3.0); // Biological essential fat floor limit
-    const change7Fat = (change7Weight - gain7Muscle) * (avgDailyBalance < 0 ? 0.90 : 1.0); // fat change with short-term metabolic dampening
+    const change7Fat = (change7Weight - gain7Muscle) * (avgDailyBalance < 0 ? 0.85 : 1.0); // 與 30 天、趨勢圖一致的代謝適應係數
     
     const future7Weight = Math.max(30, currentWeight + change7Weight);
     const future7Muscle = Math.max(10, currentMuscle + gain7Muscle);
@@ -2769,7 +2769,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const baseFatMass = todayWeight * (todayFatPct / 100);
         const projFatMass = Math.max(1, baseFatMass + (diffDays * dailyProjFatChange));
-        const projFatPct = Math.max(1, Math.min(99, (projFatMass / projWeight) * 100));
+        const projFatPct = Math.max(p.gender === 'female' ? 10.0 : 3.0, Math.min(99, (projFatMass / projWeight) * 100));
         
         const projSizes = calculateBodyMeasurements(p.gender || 'male', parseFloat(p.height) || 175, projWeight, projFatPct);
         
@@ -3044,7 +3044,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const endDate = new Date(endDateStr + 'T00:00:00');
     // For 90-day mode: past 60 days (2 months) and future 30 days (1 month)
     const pastDays = daysCount === 7 ? 3 : (daysCount === 30 ? 14 : 60);
-    const futureDays = daysCount === 7 ? 3 : (daysCount === 30 ? 15 : 30);
+    const futureDays = daysCount === 7 ? 7 : 30; // 未來刻度與首頁的 7 天、30 天預測對齊
     
     for (let i = -pastDays; i <= futureDays; i++) {
       const d = new Date(endDate);
