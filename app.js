@@ -984,7 +984,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry && entry[key] !== undefined && entry[key] !== null && parseFloat(entry[key]) > 0) {
           sum += parseFloat(entry[key]);
           count++;
-          if (count >= 3) break;
+          if (count >= 1) break; // 基準值改為最近一次紀錄（例如今天填的體重），不再平均前幾筆
         }
       }
       return count > 0 ? (sum / count) : fallbackVal;
@@ -2548,7 +2548,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (entry && entry[key] !== undefined && entry[key] !== null && parseFloat(entry[key]) > 0) {
           sum += parseFloat(entry[key]);
           count++;
-          if (count >= 3) break;
+          if (count >= 1) break; // 基準值改為最近一次紀錄（例如今天填的體重），不再平均前幾筆
         }
       }
       return count > 0 ? (sum / count) : fallbackVal;
