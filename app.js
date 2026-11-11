@@ -1190,13 +1190,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const curChest = loggedChest !== null ? loggedChest : parseFloat(curSizes.chest);
     const curBiceps = loggedBiceps !== null ? loggedBiceps : parseFloat(curSizes.biceps);
     
-    const f7Waist = parseFloat(sizes7.waist);
-    const f7Chest = parseFloat(sizes7.chest);
-    const f7Biceps = parseFloat(sizes7.biceps);
+    // 以「今天的實際值」為起點，套用模型算出的變化量來推估未來 7 / 30 天（沒有實際值時就是模型值）
+    const anchored = (cur, simFuture, simNow) => cur + (parseFloat(simFuture) - parseFloat(simNow));
+    const f7Waist = anchored(curWaist, sizes7.waist, curSizes.waist);
+    const f7Chest = anchored(curChest, sizes7.chest, curSizes.chest);
+    const f7Biceps = anchored(curBiceps, sizes7.biceps, curSizes.biceps);
     
-    const f30Waist = parseFloat(sizes30.waist);
-    const f30Chest = parseFloat(sizes30.chest);
-    const f30Biceps = parseFloat(sizes30.biceps);
+    const f30Waist = anchored(curWaist, sizes30.waist, curSizes.waist);
+    const f30Chest = anchored(curChest, sizes30.chest, curSizes.chest);
+    const f30Biceps = anchored(curBiceps, sizes30.biceps, curSizes.biceps);
     
     formatProjText(el.proj7Waist, f7Waist - curWaist, 'waist', f7Waist, 'cm', curWaist);
     formatProjText(el.proj7Chest, f7Chest - curChest, 'chest', f7Chest, 'cm', curChest);
