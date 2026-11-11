@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const height = parseFloat(p.height) || 175;
     
     // Get historical estimated weight and fatPercent trend to match with logged actual sizes
-    const history = getBodyStateHistoryUpTo(currentActiveDate);
+    const history = getBodyStateHistoryUpTo(currentActiveDate, { noSizeOffset: true });
     const weightHistory = history.weightHistory || {};
     const fatPercentHistory = history.fatPercentHistory || {};
     
@@ -2333,6 +2333,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Get Body State History Up To a Target Date ---
   function getBodyStateHistoryUpTo(maxDateStr, options) {
     const p = state.profile;
+    // 沒有實際量測的日子，圍度估算也要套用校準值（與首頁估算一致）；校準計算本身不套用，避免循環
+    const sizeCal = (options && options.noSizeOffset) ? { waist: 0, chest: 0, biceps: 0 } : calculateMeasurementOffsets();
     
     // Find earliest actual weight, muscle, and fat percent in history to pin simulation starting points
     let initialWeight = parseFloat(p.weight) || 70;
@@ -2498,9 +2500,9 @@ document.addEventListener('DOMContentLoaded', () => {
       let plotBiceps = (dayBiceps !== undefined && dayBiceps !== null && parseFloat(dayBiceps) > 0) ? parseFloat(dayBiceps) : null;
       
       const baseSizes = calculateBaseBodyMeasurements(gender, heightVal, plotWeight, plotFat);
-      if (plotWaist === null) plotWaist = baseSizes.waist;
-      if (plotChest === null) plotChest = baseSizes.chest;
-      if (plotBiceps === null) plotBiceps = baseSizes.biceps;
+      if (plotWaist === null) plotWaist = baseSizes.waist + sizeCal.waist;
+      if (plotChest === null) plotChest = baseSizes.chest + sizeCal.chest;
+      if (plotBiceps === null) plotBiceps = baseSizes.biceps + sizeCal.biceps;
       
       waistHistory[date] = plotWaist;
       chestHistory[date] = plotChest;
