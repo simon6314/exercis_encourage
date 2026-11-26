@@ -175,7 +175,7 @@
                   <div class="cal-stat-item">
                     <div class="stat-indicator tdee-dot"></div>
                     <div class="stat-info">
-                      <span class="lbl">TDEE (基本消耗)<span id="tdee-calibrated-badge" style="font-size:9px; padding:1px 4px; border-radius:3px; background:rgba(139,92,246,0.15); color:var(--accent-purple-light); margin-left:4px; display:none;">已動態校準</span></span>
+                      <span class="lbl">打平點 TDEE（含平常週末）<span id="tdee-calibrated-badge" style="font-size:9px; padding:1px 4px; border-radius:3px; background:rgba(139,92,246,0.15); color:var(--accent-purple-light); margin-left:4px; display:none;">已動態校準</span></span>
                       <span id="tdee-val-display" class="val">0 kcal</span>
                     </div>
                   </div>
@@ -187,23 +187,23 @@
             <div class="card glass-panel calorie-bank-card" style="border-color: rgba(16, 185, 129, 0.2); margin-top: 24px;">
               <div class="card-header" style="margin-bottom: 12px;">
                 <h2>🏦 FitSpark 卡路里銀行</h2>
-                <span class="card-subtitle">累積週間赤字，規劃週末美食預算</span>
+                <span class="card-subtitle">只記平日，週末照平常習慣（不記錄）</span>
               </div>
               <div class="card-body">
                 <div class="bank-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                   <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
-                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">本週累積存入</span>
+                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">本週平日差額</span>
                     <span id="bank-deposit-val" style="font-size: 18px; font-weight: 700; color: var(--accent-green);">0 kcal</span>
                   </div>
                   <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
-                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">週末已提領</span>
+                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">照平常週末，本週體重</span>
                     <span id="bank-withdraw-val" style="font-size: 18px; font-weight: 700; color: var(--accent-orange);">0 kcal</span>
                   </div>
                 </div>
                 
                 <div class="bank-progress-container" style="margin-bottom: 14px;">
                   <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">
-                    <span>銀行剩餘餘額 (Remaining Balance)</span>
+                    <span>本週已記錄平日</span>
                     <span id="bank-remaining-percent" style="font-weight: 600; color: var(--text-primary);">0%</span>
                   </div>
                   <div style="height: 8px; background: rgba(var(--ink-rgb), 0.05); border-radius: 4px; overflow: hidden;">
@@ -215,7 +215,7 @@
                   正在計算您的週間卡路里存款與週末享用額度...
                 </div>
                 <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">
-                  註：運動消耗為 MET 估算值，誤差約 ±20–30%。銀行以校正後的消耗（TDEE）計算，會跟著實際體重變化調整；只記運動、沒記飲食的日子，假設攝取等於校正後消耗。
+                  註：運動消耗為 MET 估算值，誤差約 ±20–30%。銀行以校正後的消耗（TDEE）計算；這個數字是用平日紀錄對照整週體重變化算出來的，已包含你平常週末的吃法，所以週末不用記錄。週末就算有紀錄也不納入。
                 </p>
               </div>
             </div>
@@ -1429,6 +1429,6 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20261126_bank"></script>
+  <script src="app.js?v=20261126_weekend"></script>
 </body>
 </html>

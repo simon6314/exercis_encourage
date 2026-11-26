@@ -859,109 +859,58 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // 銀行使用「校正後的消耗」（基礎消耗＋依實際體重變化算出的校正值），存款才會對應到真正的體重變化
-    const baseTdee = calculateTdee();
-    const { weekDays, weekendDays } = getWeekRange(currentActiveDate);
+    // 週末不記錄：校正後的消耗（TDEE）是用「平日的飲食紀錄」對照「整週的體重變化」算出來的，
+    // 已經把你平常週末多吃（或少吃）的部分算進去。所以只要拿平日跟它比，就能推估整週的體重變化；
+    // 週末的紀錄（就算偶爾有）也不納入，避免重複計算。
+    const tdee = calculateTdee();
+    const { weekDays } = getWeekRange(currentActiveDate);
 
     let totalDeficit = 0;
-    let weekendSurplus = 0;
-
-    // 1. 週一至週五：赤字 = (校正後消耗 + 運動淨消耗) − 攝取
-    //    沒有飲食紀錄但有運動的日子：假設攝取 = 校正後消耗，運動淨消耗直接計為存款
+    let loggedDays = 0;
     weekDays.forEach(d => {
+      if (d > currentActiveDate) return;
       const entry = state.dailyLogs[d];
-      if (!entry) return;
-      const workoutNet = workoutNetKcal(entry.workouts);
-      if (entry.diet && entry.diet.length > 0) {
-        const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-        totalDeficit += (baseTdee + workoutNet) - intake;
-      } else if (workoutNet > 0) {
-        totalDeficit += workoutNet;
-      }
+      if (!entry || !entry.diet || entry.diet.length === 0) return;   // 沒記飲食的平日不計
+      const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
+      totalDeficit += (tdee + workoutNetKcal(entry.workouts)) - intake;
+      loggedDays++;
     });
-    
-    // 保留負數：平日超支會先抵銷存款，負數代表本週已透支
-    const displayDeposit = Math.round(totalDeficit);
-    el.bankDepositVal.textContent = `${displayDeposit} kcal`;
-    el.bankDepositVal.style.color = displayDeposit < 0 ? '#ef4444' : 'var(--accent-green)';
-    
-    // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
-    // 週末：攝取超過（校正後消耗 + 運動淨消耗）的部分才計入提領；沒有飲食紀錄的日子不計
-    weekendDays.forEach(d => {
-      const entry = state.dailyLogs[d];
-      if (entry && entry.diet && entry.diet.length > 0) {
-        const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-        const dailySurplus = intake - (baseTdee + workoutNetKcal(entry.workouts));
-        if (dailySurplus > 0) {
-          weekendSurplus += dailySurplus;
-        }
-      }
-    });
-    
-    const displayWithdraw = Math.round(weekendSurplus);
-    el.bankWithdrawVal.textContent = `${displayWithdraw} kcal`;
-    
-    // 3. Remaining balance and progress bar
-    const remaining = displayDeposit - displayWithdraw;
-    const remainingPct = displayDeposit > 0 ? Math.max(0, Math.min(100, (remaining / displayDeposit) * 100)) : 0;
-    
-    el.bankRemainingPercent.textContent = `${Math.round(remainingPct)}%`;
-    el.bankProgressBar.style.width = `${remainingPct}%`;
-    
-    if (remainingPct > 50) {
-      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-green), var(--accent-yellow))';
-    } else if (remainingPct > 20) {
-      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-yellow), var(--accent-orange))';
-    } else {
-      el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-orange), #ef4444)';
-    }
-    
-    // 4. Update the message box based on current active date
-    const today = new Date(currentActiveDate + 'T00:00:00');
-    const dayOfWeek = today.getDay(); // 0 is Sunday, 6 is Saturday
-    
+
+    const deposit = Math.round(totalDeficit);
+    el.bankDepositVal.textContent = `${deposit > 0 ? '+' : ''}${deposit} kcal`;
+    el.bankDepositVal.style.color = deposit < 0 ? '#ef4444' : 'var(--accent-green)';
+
+    // 平日平均每天的差額，套到整週 7 天（週末照平常習慣），換算成體重；和首頁推估一樣打折
+    const weekKg = loggedDays > 0 ? (-(totalDeficit / loggedDays) * 7 / KCAL_PER_KG_FAT) * FORECAST_DAMP : 0;
+    const flat = Math.abs(weekKg) < 0.1;
+    const kgText = loggedDays === 0 ? '--' : (flat ? '≈ 持平' : `${weekKg > 0 ? '+' : ''}${weekKg.toFixed(1)} kg`);
+    el.bankWithdrawVal.textContent = kgText;
+    el.bankWithdrawVal.style.color = loggedDays === 0 || flat ? 'var(--text-secondary)' : (weekKg > 0 ? '#ef4444' : 'var(--accent-green)');
+
+    // 進度條改成「本週已記錄幾天平日」
+    el.bankRemainingPercent.textContent = `${loggedDays} / 5 天`;
+    el.bankProgressBar.style.width = `${(loggedDays / 5) * 100}%`;
+    el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-purple), var(--accent-pink))';
+
+    const dayOfWeek = new Date(currentActiveDate + 'T00:00:00').getDay(); // 0 週日, 6 週六
+    const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+    const absDep = Math.abs(deposit);
     let msgHTML = '';
-    if (dayOfWeek === 0) { // Sunday - Weekly Settlement Day
-      if (remaining > 0) {
-        const fatLost = (remaining / 7700).toFixed(2);
-        msgHTML = `
-          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">🏆</div>
-          <div style="font-weight: 700; color: var(--accent-green); text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：綠色健康週！】</div>
-          恭喜！本週您的卡路里銀行完美結餘 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>，相當於順利減去約 <strong style="color: var(--accent-green);">${fatLost} kg</strong> 脂肪！做得太棒了！
-        `;
-      } else if (displayDeposit === 0) {
-        msgHTML = `
-          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">💡</div>
-          <div style="font-weight: 700; color: var(--text-secondary); text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：無赤字存款】</div>
-          您本週週間（週一至週五）沒有累積任何卡路里赤字。沒關係，調整好狀態，明天星期一重新開戶，我們再接再厲！
-        `;
-      } else {
-        msgHTML = `
-          <div style="text-align: center; margin-bottom: 8px; font-size: 28px;">✉️</div>
-          <div style="font-weight: 700; color: #ef4444; text-align: center; margin-bottom: 6px; font-size: 13px;">【本週結算：銀行已超支】</div>
-          本週您的卡路里銀行透支了 <strong style="color: #ef4444;">${Math.round(-remaining)} kcal</strong>。<br>沒關係，新的一週即將開始！明天星期一我們重新開戶，調整腳步繼續加油！
-        `;
-      }
-    } else if (dayOfWeek === 6) { // Saturday
-      if (remaining > 0) {
-        msgHTML = `🎉 <strong>週末放縱餐！</strong>目前銀行餘額還剩 <strong style="color: var(--accent-green);">${Math.round(remaining)} kcal</strong>。<br>您今天可以安心享用額外美食而不影響本週減脂進度！`;
-      } else if (displayDeposit === 0) {
-        msgHTML = `💡 <strong>貼心提醒：</strong>您本週週間沒有累積任何卡路里赤字存款。週末建議維持正常 TDEE 攝取以避免脂肪囤積喔！`;
-      } else {
-        msgHTML = `⚠️ <strong>銀行已透支！</strong>您的週末大餐已超出本週所存的 <strong style="color: #ef4444;">${Math.round(-remaining)} kcal</strong>。<br>建議今天多散步或進行 30 分鐘有氧運動來補回赤字！`;
-      }
+    if (loggedDays === 0) {
+      msgHTML = isWeekend
+        ? `📅 <strong>週末不記錄。</strong>這週平日沒有飲食紀錄，無法結算。`
+        : `📅 <strong>本週還沒有平日紀錄。</strong>記錄平日的飲食後，這裡會推估照平常的週末吃法，這週體重會怎麼變。`;
     } else {
-      // Weekdays
-      if (displayDeposit < 0) {
-        msgHTML = `⚠️ <strong>本週已透支 <span style="color: #ef4444;">${-displayDeposit} kcal</span>。</strong><br>週一至週五的超支會先抵銷之後的赤字，多運動或少攝取就能慢慢補回來。`;
-      } else if (displayDeposit > 0) {
-        const weekendDailyBudget = Math.round(displayDeposit / 2);
-        msgHTML = `💪 <strong>積沙成塔中！</strong>本週已為週末大餐存下 <strong style="color: var(--accent-green);">${displayDeposit} kcal</strong>。<br>預估這週末<strong>每天可以多吃 ${weekendDailyBudget} kcal</strong> 的美食！繼續保持！`;
+      const head = isWeekend ? `📅 <strong>週末不記錄，本週平日結算（${loggedDays} 天）：</strong><br>` : '';
+      if (deposit > 0) {
+        msgHTML = `${head}平日比打平點少吃 <strong style="color: var(--accent-green);">${absDep} kcal</strong>。照你平常的週末吃法，這週體重預計 <strong>${kgText}</strong>。週末吃得比平常多，就會把這些抵掉。`;
+      } else if (deposit < 0) {
+        msgHTML = `${head}平日比打平點多吃 <strong style="color: #ef4444;">${absDep} kcal</strong>。照你平常的週末吃法，這週體重預計 <strong>${kgText}</strong>。${isWeekend ? '' : '接下來的平日少吃一點，或週末比平常收斂，就能拉回來。'}`;
       } else {
-        msgHTML = `🏦 <strong>卡路里銀行已開戶！</strong>週一至週五多運動或少攝取熱量，所創造的赤字會存入此處。週末就能轉換為無罪惡感的放縱餐額度！`;
+        msgHTML = `${head}平日剛好吃在打平點，照平常的週末吃法，這週體重預計持平。`;
       }
     }
-    
+    msgHTML += `<div style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">打平點 = 校正後消耗 ${tdee} kcal＋當天運動。平日吃到這個量，加上你平常的週末，體重大致持平。</div>`;
     el.bankMsgBox.innerHTML = msgHTML;
   }
 
@@ -2291,7 +2240,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let plotMuscle = hasMuscle ? parseFloat(dayMuscle) : null;
       let plotFat = hasFat ? parseFloat(dayFatPercent) : null;
       
-      if (hasWorkouts || hasDiet) {
+      // 沒有飲食紀錄的日子（例如週末不記錄）不計熱量差：平常的週末已經算在校正後的消耗裡
+      if (hasDiet) {
         const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayWorkoutOut = entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayCalorieBalance = dayIn - (tdee + dayWorkoutOut);
@@ -2469,7 +2419,8 @@ document.addEventListener('DOMContentLoaded', () => {
       let plotMuscle = hasMuscle ? parseFloat(dayMuscle) : null;
       let plotFat = hasFat ? parseFloat(dayFatPercent) : null;
 
-      if (hasWorkouts || hasDiet) {
+      // 沒有飲食紀錄的日子（例如週末不記錄）不計熱量差：平常的週末已經算在校正後的消耗裡
+      if (hasDiet) {
         const dayIn = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayWorkoutOut = entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
         const dayCalorieBalance = dayIn - (tdee + dayWorkoutOut);
@@ -3431,7 +3382,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
     if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = calib.ok ? offsetText : '尚未校正';
     if (el.adaptiveTdeeDetail) el.adaptiveTdeeDetail.textContent = calib.ok
-      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重（7 天移動平均）計算；沒有飲食紀錄的日子不納入。`
+      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重（7 天移動平均）計算。週末不記錄：你平常週末多吃的部分已經算進這個數字，所以它代表「平日吃到這裡，體重就會持平」的熱量。`
       : `${calib.reason}。目前使用基礎消耗（BMR × 1.2）加上運動消耗。`;
     
     // 3. Calorie Ring Totals
@@ -3452,6 +3403,12 @@ document.addEventListener('DOMContentLoaded', () => {
       el.netCalVal.style.color = '#ef4444';
     } else {
       el.netCalVal.style.color = 'var(--text-primary)';
+    }
+    // 週末不記錄：沒有飲食紀錄時不顯示淨熱量，避免看起來像大幅赤字
+    const activeDow = new Date(currentActiveDate + 'T00:00:00').getDay();
+    if ((activeDow === 0 || activeDow === 6) && totalIn === 0) {
+      el.netCalVal.textContent = '週末';
+      el.netCalVal.style.color = 'var(--text-secondary)';
     }
     
     // Animate SVG Calorie rings
