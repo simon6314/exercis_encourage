@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Styling -->
-  <link rel="stylesheet" href="style.css?v=20260921_0915">
+  <link rel="stylesheet" href="style.css?v=20261126_bright">
 </head>
 <body>
 
@@ -191,11 +191,11 @@
               </div>
               <div class="card-body">
                 <div class="bank-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
-                  <div class="bank-stat" style="background: rgba(255, 255, 255, 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
+                  <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
                     <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">本週累積存入</span>
                     <span id="bank-deposit-val" style="font-size: 18px; font-weight: 700; color: var(--accent-green);">0 kcal</span>
                   </div>
-                  <div class="bank-stat" style="background: rgba(255, 255, 255, 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
+                  <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
                     <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">週末已提領</span>
                     <span id="bank-withdraw-val" style="font-size: 18px; font-weight: 700; color: var(--accent-orange);">0 kcal</span>
                   </div>
@@ -204,9 +204,9 @@
                 <div class="bank-progress-container" style="margin-bottom: 14px;">
                   <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary); margin-bottom: 4px;">
                     <span>銀行剩餘餘額 (Remaining Balance)</span>
-                    <span id="bank-remaining-percent" style="font-weight: 600; color: white;">0%</span>
+                    <span id="bank-remaining-percent" style="font-weight: 600; color: var(--text-primary);">0%</span>
                   </div>
-                  <div style="height: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; overflow: hidden;">
+                  <div style="height: 8px; background: rgba(var(--ink-rgb), 0.05); border-radius: 4px; overflow: hidden;">
                     <div id="bank-progress-bar" style="height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent-green), var(--accent-orange)); border-radius: 4px; transition: width 0.8s ease;"></div>
                   </div>
                 </div>
@@ -275,15 +275,15 @@
                 <div class="proj-stats" style="margin-bottom: 16px;">
                   <div class="proj-stat">
                     <span class="lbl">估計體重 (Weight)</span>
-                    <span id="est-weight-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- kg</span>
+                    <span id="est-weight-val" class="val" style="color: var(--text-primary); font-size: 16px; font-weight: 700;">-- kg</span>
                   </div>
                   <div class="proj-stat">
                     <span class="lbl">估計肌肉量 (Muscle)</span>
-                    <span id="est-muscle-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- kg</span>
+                    <span id="est-muscle-val" class="val" style="color: var(--text-primary); font-size: 16px; font-weight: 700;">-- kg</span>
                   </div>
                   <div class="proj-stat">
                     <span class="lbl">估計體脂率 (Body Fat)</span>
-                    <span id="est-fat-val" class="val" style="color: white; font-size: 16px; font-weight: 700;">-- %</span>
+                    <span id="est-fat-val" class="val" style="color: var(--text-primary); font-size: 16px; font-weight: 700;">-- %</span>
                   </div>
                 </div>
 
@@ -303,7 +303,7 @@
                 </div>
 
                 <div class="avatar-visualizer-container" style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                  <div style="position: relative; width: 160px; height: 220px; background: rgba(0,0,0,0.25); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; cursor: pointer;" id="avatar-viewport" title="點擊放大檢視">
+                  <div style="position: relative; width: 160px; height: 220px; background: rgba(var(--ink-rgb), 0.037); border-radius: 14px; border: 1px solid rgba(var(--ink-rgb), 0.05); box-shadow: inset 0 0 20px rgba(139, 92, 246, 0.05), 0 4px 20px rgba(0, 0, 0, 0.3); overflow: hidden; cursor: pointer;" id="avatar-viewport" title="點擊放大檢視">
                     <div id="body-shape-sprite" style="display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
                       <canvas id="sprite-scanline-canvas" width="160" height="220" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
                     </div>
@@ -323,7 +323,7 @@
                   </div>
                 </div>
 
-                <details class="scenarios-details" id="body-matrix-details" style="margin: 4px 0 12px 0; background: rgba(255, 255, 255, 0.01); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.05); padding: 8px; width: 100%;">
+                <details class="scenarios-details" id="body-matrix-details" style="margin: 4px 0 12px 0; background: rgba(var(--ink-rgb), 0.01); border-radius: 10px; border: 1px solid rgba(var(--ink-rgb), 0.05); padding: 8px; width: 100%;">
                   <summary class="scenarios-summary" style="font-size: 11px; font-weight: 700; color: var(--text-secondary); display: flex; align-items: center; justify-content: space-between; outline: none; list-style: none;">
                     <span style="display: flex; align-items: center; gap: 6px;">
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="var(--accent-purple-light)" stroke-width="2.5" style="vertical-align: middle;">
@@ -346,34 +346,34 @@
                     正在載入歷史累積數據...
                   </p>
                   
-                  <div class="weight-log-row" style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px; background: rgba(255, 255, 255, 0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
+                  <div class="weight-log-row" style="display: flex; flex-direction: column; gap: 10px; margin-top: 4px; background: rgba(var(--ink-rgb), 0.02); padding: 12px; border-radius: 8px; border: 1px solid var(--glass-border);">
                     <div style="font-size: 11px; color: var(--text-secondary); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">登記當日實測體態數據：</div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;">
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">體重 (kg)</span>
-                        <input type="number" id="input-daily-weight" step="0.1" placeholder="體重" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-weight" step="0.1" placeholder="體重" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">肌肉 (kg)</span>
-                        <input type="number" id="input-daily-muscle" step="0.1" placeholder="肌肉" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-muscle" step="0.1" placeholder="肌肉" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">體脂 (%)</span>
-                        <input type="number" id="input-daily-fat" step="0.1" placeholder="體脂" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-fat" step="0.1" placeholder="體脂" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                     </div>
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px;">
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">腰圍 (cm)</span>
-                        <input type="number" id="input-daily-waist" step="0.1" placeholder="腰圍" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-waist" step="0.1" placeholder="腰圍" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">胸圍 (cm)</span>
-                        <input type="number" id="input-daily-chest" step="0.1" placeholder="胸圍" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-chest" step="0.1" placeholder="胸圍" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                       <div style="display: flex; flex-direction: column; gap: 4px;">
                         <span style="font-size: 9px; color: var(--text-muted);">手臂 (cm)</span>
-                        <input type="number" id="input-daily-biceps" step="0.1" placeholder="手臂" style="width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: white; font-size: 11px; text-align: center; outline: none;">
+                        <input type="number" id="input-daily-biceps" step="0.1" placeholder="手臂" style="width: 100%; background: rgba(var(--ink-rgb), 0.045); border: 1px solid var(--glass-border); border-radius: 6px; padding: 4px 6px; color: var(--text-primary); font-size: 11px; text-align: center; outline: none;">
                       </div>
                     </div>
                     <button id="btn-save-daily-weight" class="primary-btn green-btn" style="width: 100%; justify-content: center; padding: 6px 10px; font-size: 11px; border-radius: 6px; cursor: pointer; border: none; font-weight: 600; display: flex; align-items: center; gap: 4px; transition: var(--transition-fast);">
@@ -398,7 +398,7 @@
                         ✨ Gemini AI 深度私教診斷
                       </span>
                       <div style="display: flex; gap: 6px;">
-                        <button id="btn-copy-coach-prompt" style="background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 4px; color: var(--text-secondary); padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; transition: all 0.2s;">
+                        <button id="btn-copy-coach-prompt" style="background: rgba(var(--ink-rgb), 0.08); border: 1px solid rgba(var(--ink-rgb), 0.15); border-radius: 4px; color: var(--text-secondary); padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; transition: all 0.2s;">
                           📋 複製 Prompt
                         </button>
                         <button id="btn-trigger-ai-coach" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-orange)); border: none; border-radius: 4px; color: white; padding: 3px 8px; font-size: 10px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 2px; box-shadow: 0 2px 6px rgba(139, 92, 246, 0.3);">
@@ -1020,7 +1020,7 @@
               <h2>歷史趨勢分析</h2>
               <span class="card-subtitle">結合個人習慣與實測數據的聯動圖表 📍（顯示前 2 個月歷史與後 1 個月預測）</span>
             </div>
-            <div class="chart-controls" style="display: flex; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--glass-border); padding: 4px; border-radius: 10px; gap: 4px;">
+            <div class="chart-controls" style="display: flex; background: rgba(var(--ink-rgb), 0.03); border: 1px solid var(--glass-border); padding: 4px; border-radius: 10px; gap: 4px;">
               <button id="btn-chart-range-7" class="chart-filter-btn active" onclick="changeChartRange(7)">7天趨勢</button>
               <button id="btn-chart-range-30" class="chart-filter-btn" onclick="changeChartRange(30)">30天趨勢</button>
               <button id="btn-chart-range-90" class="chart-filter-btn" onclick="changeChartRange(90)">3個月趨勢</button>
@@ -1119,10 +1119,10 @@
             <div class="insights-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
               
               <!-- Insight Item 1: Protein vs Muscle -->
-              <div class="insight-item" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); padding: 16px; border-radius: 12px;">
+              <div class="insight-item" style="background: rgba(var(--ink-rgb), 0.02); border: 1px solid var(--glass-border); padding: 16px; border-radius: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                   <span style="font-size: 20px;">🥩</span>
-                  <div style="font-weight: 700; color: white; font-size: 14px;">蛋白質攝取與肌肉保留關聯</div>
+                  <div style="font-weight: 700; color: var(--text-primary); font-size: 14px;">蛋白質攝取與肌肉保留關聯</div>
                 </div>
                 <div id="insight-protein-data" style="margin-bottom: 12px; font-size: 11px; line-height: 1.5; color: var(--text-secondary);">
                   正在分析歷史數據中...
@@ -1133,7 +1133,7 @@
                       <span>蛋白質達標日 (平均每日肌肉變化)</span>
                       <span id="insight-protein-high-val" style="color: var(--accent-purple-light); font-weight: 600;">+0.00 kg</span>
                     </div>
-                    <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 6px; background: rgba(var(--ink-rgb), 0.05); border-radius: 3px; overflow: hidden;">
                       <div id="insight-protein-high-bar" style="height: 100%; width: 0%; background: var(--accent-purple); border-radius: 3px; transition: width 0.8s ease;"></div>
                     </div>
                   </div>
@@ -1142,7 +1142,7 @@
                       <span>蛋白質未達標日 (平均每日肌肉變化)</span>
                       <span id="insight-protein-low-val" style="color: #ef4444; font-weight: 600;">+0.00 kg</span>
                     </div>
-                    <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 6px; background: rgba(var(--ink-rgb), 0.05); border-radius: 3px; overflow: hidden;">
                       <div id="insight-protein-low-bar" style="height: 100%; width: 0%; background: #ef4444; border-radius: 3px; transition: width 0.8s ease;"></div>
                     </div>
                   </div>
@@ -1150,10 +1150,10 @@
               </div>
 
               <!-- Insight Item 2: Resistance Training vs Fat Loss -->
-              <div class="insight-item" style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--glass-border); padding: 16px; border-radius: 12px;">
+              <div class="insight-item" style="background: rgba(var(--ink-rgb), 0.02); border: 1px solid var(--glass-border); padding: 16px; border-radius: 12px;">
                 <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
                   <span style="font-size: 20px;">🏋️‍♂️</span>
-                  <div style="font-weight: 700; color: white; font-size: 14px;">阻力訓練與體脂流失率關聯</div>
+                  <div style="font-weight: 700; color: var(--text-primary); font-size: 14px;">阻力訓練與體脂流失率關聯</div>
                 </div>
                 <div id="insight-workout-data" style="margin-bottom: 12px; font-size: 11px; line-height: 1.5; color: var(--text-secondary);">
                   正在分析歷史數據中...
@@ -1164,7 +1164,7 @@
                       <span>有重訓日 (平均每日體脂變化)</span>
                       <span id="insight-workout-yes-val" style="color: var(--accent-green); font-weight: 600;">-0.0%</span>
                     </div>
-                    <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 6px; background: rgba(var(--ink-rgb), 0.05); border-radius: 3px; overflow: hidden;">
                       <div id="insight-workout-yes-bar" style="height: 100%; width: 0%; background: var(--accent-green); border-radius: 3px; transition: width 0.8s ease;"></div>
                     </div>
                   </div>
@@ -1173,7 +1173,7 @@
                       <span>無重訓日 (平均每日體脂變化)</span>
                       <span id="insight-workout-no-val" style="color: var(--text-muted); font-weight: 600;">-0.0%</span>
                     </div>
-                    <div style="height: 6px; background: rgba(255,255,255,0.05); border-radius: 3px; overflow: hidden;">
+                    <div style="height: 6px; background: rgba(var(--ink-rgb), 0.05); border-radius: 3px; overflow: hidden;">
                       <div id="insight-workout-no-bar" style="height: 100%; width: 0%; background: var(--text-muted); border-radius: 3px; transition: width 0.8s ease;"></div>
                     </div>
                   </div>
@@ -1344,7 +1344,7 @@
         </p>
         
         <!-- Action 1: Download -->
-        <div style="background: rgba(255, 255, 255, 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 8px;">
+        <div style="background: rgba(var(--ink-rgb), 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.05); display: flex; flex-direction: column; gap: 8px;">
           <h3 style="margin: 0; font-size: 14px; color: var(--accent-green); display: flex; align-items: center; gap: 6px;">
             📥 從雲端下載 (Download)
           </h3>
@@ -1357,7 +1357,7 @@
         </div>
         
         <!-- Action 2: Upload -->
-        <div style="background: rgba(255, 255, 255, 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(255, 255, 255, 0.05); display: flex; flex-direction: column; gap: 8px;">
+        <div style="background: rgba(var(--ink-rgb), 0.03); padding: 16px; border-radius: 12px; border: 1px solid rgba(var(--ink-rgb), 0.05); display: flex; flex-direction: column; gap: 8px;">
           <h3 style="margin: 0; font-size: 14px; color: var(--accent-orange); display: flex; align-items: center; gap: 6px;">
             📤 上傳至雲端 (Upload)
           </h3>
@@ -1379,20 +1379,20 @@
 
   <!-- BODY SHAPE LIGHTBOX MODAL -->
   <div id="body-shape-lightbox" class="modal-overlay" style="z-index: 2000;">
-    <div class="lightbox-content glass-panel" style="position: relative; max-width: 380px; width: 90%; background: rgba(10, 10, 15, 0.85); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 24px;">
+    <div class="lightbox-content glass-panel" style="position: relative; max-width: 380px; width: 90%; background: rgba(10, 10, 15, 0.85); border: 1px solid rgba(var(--ink-rgb), 0.1); border-radius: 20px; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6); backdrop-filter: blur(20px); overflow: hidden; display: flex; flex-direction: column; align-items: center; padding: 24px;">
       <button id="btn-close-lightbox" class="close-modal-btn" style="position: absolute; right: 16px; top: 16px; font-size: 24px; background: transparent; border: none; color: var(--text-secondary); cursor: pointer; transition: color 0.2s;">&times;</button>
       
-      <h2 id="lightbox-title" style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: white;">體態放大檢視</h2>
+      <h2 id="lightbox-title" style="font-size: 18px; font-weight: 700; margin-bottom: 4px; color: var(--text-primary);">體態放大檢視</h2>
       <p id="lightbox-subtitle" style="font-size: 12px; color: var(--text-secondary); margin: 0 0 16px 0;">-- kg / -- % 體脂</p>
       
-      <div style="position: relative; width: 280px; height: 380px; background: rgba(0,0,0,0.3); border-radius: 14px; border: 1px solid rgba(255, 255, 255, 0.08); box-shadow: inset 0 0 30px rgba(139, 92, 246, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4); overflow: hidden;" id="lightbox-viewport">
+      <div style="position: relative; width: 280px; height: 380px; background: rgba(var(--ink-rgb), 0.045); border-radius: 14px; border: 1px solid rgba(var(--ink-rgb), 0.08); box-shadow: inset 0 0 30px rgba(139, 92, 246, 0.1), 0 8px 32px rgba(0, 0, 0, 0.4); overflow: hidden;" id="lightbox-viewport">
         <div id="lightbox-body-sprite" style="display: block; position: absolute; top: 0; left: 0; width: 100%; height: 100%; background-repeat: no-repeat; background-size: 300% 300%; transition: background-position 0.2s ease, transform 0.2s ease; z-index: 1;">
           <canvas id="lightbox-sprite-scanline" width="280" height="380" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3;"></canvas>
         </div>
       </div>
       
       <!-- Interactive Morphing Controls -->
-      <div id="lightbox-controls" style="margin-top: 16px; width: 100%; display: flex; flex-direction: column; gap: 12px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); padding: 12px; border-radius: 12px;">
+      <div id="lightbox-controls" style="margin-top: 16px; width: 100%; display: flex; flex-direction: column; gap: 12px; background: rgba(var(--ink-rgb), 0.02); border: 1px solid rgba(var(--ink-rgb), 0.05); padding: 12px; border-radius: 12px;">
         <div class="slider-control-group" style="display: flex; flex-direction: column; gap: 4px;">
           <div style="display: flex; justify-content: space-between; font-size: 11px; color: var(--text-secondary);">
             <span>模擬體脂率 (Body Fat):</span>
@@ -1429,6 +1429,6 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20261104_2255"></script>
+  <script src="app.js?v=20261126_model"></script>
 </body>
 </html>

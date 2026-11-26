@@ -30,6 +30,19 @@ document.addEventListener('DOMContentLoaded', () => {
     return keywords.some(kw => name.includes(kw));
   }
 
+  // 推估增肌只看「器材重訓」（啞鈴、槓鈴、健身房器材）。
+  // 徒手的伏地挺身、深蹲：依過去紀錄（6 月到 11 月）肌肉量沒有上升，視為維持肌肉，不推估增肌。
+  function isMuscleGainTraining(w) {
+    if (!w) return false;
+    if (w.type === 'weight') return true;
+    const name = (w.name || '').toLowerCase();
+    const keywords = [
+      '重訓', '重量', '啞鈴', '壺鈴', '槓鈴', '推舉', '硬舉', '臥推', '胸推', '划船', '拉背', '器材',
+      'dumbbell', 'barbell', 'kettlebell', 'deadlift', 'bench press', 'machine'
+    ];
+    return keywords.some(kw => name.includes(kw));
+  }
+
   const MOTIVATION_QUOTES = [
     { text: "持續運動的秘訣，就是踏出第一步！你的汗水絕對不會背叛你。", author: "健身大師" },
     { text: "不要因為覺得進步慢而氣餒，即使是再慢的步伐，也比躺在沙發上的你前進了許多。", author: "FitSpark" },
@@ -427,11 +440,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Base activity: fixed 1.2 (non-exercise). Logged workouts are added on top. ---
   const BASE_ACTIVITY_FACTOR = 1.2;
-  const CAL_WINDOW_DAYS = 28;      // 校正窗口：最近 28 天
+  const CAL_WINDOW_DAYS = 56;      // 校正窗口：最近 56 天（依過去紀錄回測，比 28 天穩定）
   const CAL_MIN_DIET_DAYS = 14;    // 至少 14 天有飲食紀錄才校正
   const CAL_MIN_WEIGHT_POINTS = 14; // 且這些有飲食紀錄的日子至少 14 筆體重（水分波動大，筆數太少斜率不可靠）
   const CAL_SMOOTH_HALF_WINDOW = 3; // 體重以前後各 3 天（共 7 天）的平均做趨勢，降低單日波動
   const KCAL_PER_KG_FAT = 7700;    // 約 1 kg 體脂肪 ≈ 7700 kcal
+  const EMPIRICAL_BLEND = 0;       // 7/30 天推估混入近期體重斜率的比例（原本 0.6）
+  const FAT_SHARE_OF_CHANGE = 0.5; // 體重變化中屬於脂肪的比例（原本 0.85～1.0）；依過去體脂計紀錄回測，體脂率變動比熱量模型預期的小
 
   function getBaseTdee() {
     return Math.round(calculateBmr() * BASE_ACTIVITY_FACTOR);
@@ -1060,7 +1075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isMuscleGainTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         
         sum14WorkoutOut += dayWorkout;
         sum14WorkoutMins += dayMins;
@@ -1111,8 +1126,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (daysDiff >= 7) {
         const empiricalSlopeWeightPerDay = (avgLastW - avgFirstW) / daysDiff;
         const empiricalBalance = empiricalSlopeWeightPerDay * 7700;
-        // Blend 40% Calorie Intake/Deficit Model + 60% Empirical Real Weight Trend (Original design ratio)
-        avgDailyBalance = (avgDailyBalance * 0.4) + (empiricalBalance * 0.6);
+        // 混入體重斜率的比例（EMPIRICAL_BLEND）；回測後設為 0：熱量模型已用 56 天體重趨勢校正過，再混入短期斜率反而高估變化
+        avgDailyBalance = (avgDailyBalance * (1 - EMPIRICAL_BLEND)) + (empiricalBalance * EMPIRICAL_BLEND);
       }
     }
     
@@ -1138,7 +1153,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     const minFatPctFloor = (p.gender === 'female' ? 10.0 : 3.0); // Biological essential fat floor limit
-    const change7Fat = (change7Weight - gain7Muscle) * (avgDailyBalance < 0 ? 0.85 : 1.0); // 與 30 天、趨勢圖一致的代謝適應係數
+    const change7Fat = (change7Weight - gain7Muscle) * FAT_SHARE_OF_CHANGE; // 與 30 天、趨勢圖一致
     
     const future7Weight = Math.max(30, currentWeight + change7Weight);
     const future7Muscle = Math.max(10, currentMuscle + gain7Muscle);
@@ -1165,7 +1180,7 @@ document.addEventListener('DOMContentLoaded', () => {
       gain30Muscle = 0;
     }
     
-    const change30Fat = (change30Weight - gain30Muscle) * (avgDailyBalance < 0 ? 0.85 : 1.0); // fat change with metabolic adaptation factor
+    const change30Fat = (change30Weight - gain30Muscle) * FAT_SHARE_OF_CHANGE; // 與 7 天、趨勢圖一致
     
     const future30Weight = Math.max(30, currentWeight + change30Weight);
     const future30Muscle = Math.max(10, currentMuscle + gain30Muscle);
@@ -1224,7 +1239,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function formatProjText(element, changeValue, metricType, futureValue, unit, currentValue) {
-    let color = 'white';
+    let color = 'var(--text-primary)';
     let arrow = '';
     
     if (changeValue < -0.01) {
@@ -2079,7 +2094,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         cell.innerHTML = `
           <span class="num-label">#${idx + 1} ${p.label}</span>
-          <div class="matrix-thumbnail" style="width: 92px; height: 92px; background-image: url('${imgUrl}'); background-repeat: no-repeat; background-size: ${bgSize}; background-position: ${bgPos}; border-radius: 6px; margin: 4px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);"></div>
+          <div class="matrix-thumbnail" style="width: 92px; height: 92px; background-image: url('${imgUrl}'); background-repeat: no-repeat; background-size: ${bgSize}; background-position: ${bgPos}; border-radius: 6px; margin: 4px 0; box-shadow: 0 2px 6px rgba(0,0,0,0.5), inset 0 0 10px rgba(0,0,0,0.3); border: 1px solid rgba(var(--ink-rgb), 0.05);"></div>
           <span class="name-label">${p.name.split(' (')[0]}</span>
         `;
         
@@ -2274,7 +2289,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasEnoughProtein = dayProtein >= (targetProtein * 0.8);
         
         const weightTrainingMins = entry.workouts
-          .filter(isWeightTraining)
+          .filter(isMuscleGainTraining)
           .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
         const hasWeightTraining = weightTrainingMins >= 30;
         
@@ -2292,7 +2307,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Apply metabolic adaptation dampening to daily fat loss during deficit
-        const dayFatChange = (dayWeightChange - dayMuscleChange) * (dayCalorieBalance < 0 ? 0.85 : 1.0);
+        const dayFatChange = (dayWeightChange - dayMuscleChange) * FAT_SHARE_OF_CHANGE;
         
         cumWeight += dayWeightChange;
         cumMuscle += dayMuscleChange;
@@ -2452,7 +2467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const hasEnoughProtein = dayProtein >= (targetProtein * 0.8);
         
         const weightTrainingMins = entry.workouts
-          .filter(isWeightTraining)
+          .filter(isMuscleGainTraining)
           .reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0);
         const hasWeightTraining = weightTrainingMins >= 30;
         
@@ -2469,7 +2484,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Apply metabolic adaptation dampening to daily fat loss during deficit
-        const dayFatChange = (dayWeightChange - dayMuscleChange) * (dayCalorieBalance < 0 ? 0.85 : 1.0);
+        const dayFatChange = (dayWeightChange - dayMuscleChange) * FAT_SHARE_OF_CHANGE;
         
         cumWeight += dayWeightChange;
         cumMuscle += dayMuscleChange;
@@ -2606,7 +2621,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const dayWorkout = entry.workouts ? entry.workouts.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0) : 0;
         const dayMins = entry.workouts ? entry.workouts.reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
-        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isWeightTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
+        const dayWeightTraining = entry.workouts ? entry.workouts.filter(isMuscleGainTraining).reduce((sum, w) => sum + (parseFloat(w.duration) || 0), 0) : 0;
         
         sum14WorkoutOut += dayWorkout;
         sum14WorkoutMins += dayMins;
@@ -2654,8 +2669,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (daysDiff >= 7) {
         const empiricalSlopeWeightPerDay = (avgLastW - avgFirstW) / daysDiff;
         const empiricalBalance = empiricalSlopeWeightPerDay * 7700;
-        // Blend 40% Calorie Intake/Deficit Model + 60% Empirical Real Weight Trend (Original design ratio)
-        avgDailyBalance = (avgDailyBalance * 0.4) + (empiricalBalance * 0.6);
+        // 混入體重斜率的比例（EMPIRICAL_BLEND）；回測後設為 0：熱量模型已用 56 天體重趨勢校正過，再混入短期斜率反而高估變化
+        avgDailyBalance = (avgDailyBalance * (1 - EMPIRICAL_BLEND)) + (empiricalBalance * EMPIRICAL_BLEND);
       }
     }
     
@@ -2676,8 +2691,8 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
-    // Apply 0.85 metabolic adaptation dampening to chart line fat loss projection
-    const dailyProjFatChange = (dailyProjWeightChange - dailyProjMuscleChange) * (avgDailyBalance < 0 ? 0.85 : 1.0);
+    // 體重變化中屬於脂肪的比例（FAT_SHARE_OF_CHANGE），與首頁 7/30 天推估一致
+    const dailyProjFatChange = (dailyProjWeightChange - dailyProjMuscleChange) * FAT_SHARE_OF_CHANGE;
     
     const weightTrend = [];
     const muscleTrend = [];
@@ -2925,7 +2940,7 @@ document.addEventListener('DOMContentLoaded', () => {
             data: data,
             spanGaps: true, // 跨過沒有紀錄的日子，直接連接前後兩筆真實數據
             borderColor: color,
-            backgroundColor: 'rgba(255, 255, 255, 0.01)',
+            backgroundColor: 'rgba(255, 255, 255, 0)',
             borderWidth: 2.5,
             pointBackgroundColor: color,
             pointBorderColor: '#ffffff',
@@ -2992,8 +3007,8 @@ document.addEventListener('DOMContentLoaded', () => {
           scales: {
             x: {
               grid: {
-                color: 'rgba(255, 255, 255, 0.03)',
-                borderColor: 'rgba(255, 255, 255, 0.06)'
+                color: 'rgba(43, 35, 64, 0.06)',
+                borderColor: 'rgba(43, 35, 64, 0.10)'
               },
               ticks: {
                 color: '#64748b',
@@ -3007,8 +3022,8 @@ document.addEventListener('DOMContentLoaded', () => {
             y: {
               grace: '8%',
               grid: {
-                color: 'rgba(255, 255, 255, 0.03)',
-                borderColor: 'rgba(255, 255, 255, 0.06)'
+                color: 'rgba(43, 35, 64, 0.06)',
+                borderColor: 'rgba(43, 35, 64, 0.10)'
               },
               ticks: {
                 color: '#64748b',
@@ -3101,12 +3116,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const diffColor = Math.abs(diff) < 0.01 ? 'var(--text-secondary)' : (diff > 0 ? '#ef4444' : 'var(--accent-green)');
         element.innerHTML = `
           <div style="font-size: 11px; font-weight: 500; opacity: 0.8; margin-bottom: 2px;">估算: ${simStr}${unit}</div>
-          <div style="font-size: 15px; font-weight: 700; color: #FFF;">實際: ${actStr}${unit}</div>
+          <div style="font-size: 15px; font-weight: 700; color: var(--text-primary);">實際: ${actStr}${unit}</div>
           <div style="font-size: 10px; font-weight: 600; color: ${diffColor}; margin-top: 1px;">誤差: ${diffSign}${diff.toFixed(decimals)}${unit}</div>
         `;
       } else {
         element.innerHTML = `
-          <span style="font-size: 16px; font-weight: 700; color: #FFF;">${simStr}${unit}</span>
+          <span style="font-size: 16px; font-weight: 700; color: var(--text-primary);">${simStr}${unit}</span>
           <div style="font-size: 9px; font-weight: 500; opacity: 0.5; margin-top: 2px;">(未填實際值)</div>
         `;
       }
@@ -3310,7 +3325,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const commentListHTML = comments.map(c => `
-          <div style="background: rgba(255, 255, 255, 0.02); padding: 6px 8px; border-radius: 6px; border-left: 3px solid var(--accent-purple); text-align: left; line-height: 1.5; margin-bottom: 4px;">${c}</div>
+          <div style="background: rgba(var(--ink-rgb), 0.02); padding: 6px 8px; border-radius: 6px; border-left: 3px solid var(--accent-purple); text-align: left; line-height: 1.5; margin-bottom: 4px;">${c}</div>
         `).join('');
         
         el.dailyComparisonBox.innerHTML = `
@@ -3320,10 +3335,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </svg>
             今日實測 vs 科學預測（教練分析）
           </div>
-          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; background: rgba(0,0,0,0.15); padding: 8px; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.05);">
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; background: rgba(var(--ink-rgb), 0.022); padding: 8px; border-radius: 6px; border: 1px solid rgba(var(--ink-rgb), 0.05);">
             <div style="text-align: center;">
               <div style="font-size: 9px; color: var(--text-muted);">體重比較</div>
-              <div style="font-size: 11px; font-weight: 700; color: white;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-primary);">
                 ${hasActWeight ? actWeight.toFixed(1) + ' kg' : '--'}
               </div>
               <div style="font-size: 9px; color: var(--text-muted); scale: 0.9; margin: 1px 0;">預估 ${pred.weight.toFixed(1)}</div>
@@ -3331,9 +3346,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${dWText}
               </div>
             </div>
-            <div style="text-align: center; border-left: 1px solid rgba(255, 255, 255, 0.08); border-right: 1px solid rgba(255, 255, 255, 0.08);">
+            <div style="text-align: center; border-left: 1px solid rgba(var(--ink-rgb), 0.08); border-right: 1px solid rgba(var(--ink-rgb), 0.08);">
               <div style="font-size: 9px; color: var(--text-muted);">肌肉比較</div>
-              <div style="font-size: 11px; font-weight: 700; color: white;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-primary);">
                 ${hasActMuscle ? actMuscle.toFixed(1) + ' kg' : '--'}
               </div>
               <div style="font-size: 9px; color: var(--text-muted); scale: 0.9; margin: 1px 0;">預估 ${pred.muscle.toFixed(1)}</div>
@@ -3343,7 +3358,7 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
             <div style="text-align: center;">
               <div style="font-size: 9px; color: var(--text-muted);">體脂比較</div>
-              <div style="font-size: 11px; font-weight: 700; color: white;">
+              <div style="font-size: 11px; font-weight: 700; color: var(--text-primary);">
                 ${hasActFat ? actFat.toFixed(1) + '%' : '--'}
               </div>
               <div style="font-size: 9px; color: var(--text-muted); scale: 0.9; margin: 1px 0;">預估 ${pred.fatPercent.toFixed(1)}%</div>
@@ -3421,7 +3436,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } else if (netCalories > 0) {
       el.netCalVal.style.color = '#ef4444';
     } else {
-      el.netCalVal.style.color = 'white';
+      el.netCalVal.style.color = 'var(--text-primary)';
     }
     
     // Animate SVG Calorie rings
