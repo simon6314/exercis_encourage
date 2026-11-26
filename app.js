@@ -446,7 +446,15 @@ document.addEventListener('DOMContentLoaded', () => {
   const CAL_SMOOTH_HALF_WINDOW = 3; // 體重以前後各 3 天（共 7 天）的平均做趨勢，降低單日波動
   const KCAL_PER_KG_FAT = 7700;    // 約 1 kg 體脂肪 ≈ 7700 kcal
   const EMPIRICAL_BLEND = 0;       // 7/30 天推估混入近期體重斜率的比例（原本 0.6）
-  const FAT_SHARE_OF_CHANGE = 0.5; // 體重變化中屬於脂肪的比例（原本 0.85～1.0）；依過去體脂計紀錄回測，體脂率變動比熱量模型預期的小
+  const FAT_SHARE_OF_CHANGE = 0.35; // 體重變化中屬於脂肪的比例（原本 0.85～1.0）；依過去體脂計紀錄回測，體脂率變動比熱量模型預期的小
+  const FORECAST_DAMP = 0.6;       // 推估體重變化只取熱量模型的 60%：回測顯示熱量模型會高估變化（代謝適應、紀錄誤差），打折後最接近實際
+  // 依 6/22～11/26 紀錄回測的平均誤差，顯示在推估數字旁，提醒這是估計範圍
+  const FORECAST_ERR = {
+    7:  { weight: 0.5, muscle: 0.45, fat: 0.6 },
+    30: { weight: 0.7, muscle: 0.4,  fat: 0.5 }
+  };
+  // 圍度：用過去紀錄的量測波動當作「分不出增減」的範圍
+  const SIZE_ERR = { waist: 0.6, chest: 0.6, biceps: 0.2 };
 
   function getBaseTdee() {
     return Math.round(calculateBmr() * BASE_ACTIVITY_FACTOR);
@@ -1132,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     // 7 Days Calculations
-    const change7Weight = (avgDailyBalance * 7) / 7700; // 7,700 kcal = 1kg body weight
+    const change7Weight = (avgDailyBalance * 7) / 7700 * FORECAST_DAMP; // 7,700 kcal = 1kg，再依回測打折
     let gain7Muscle = 0;
     
     if (avgDailyBalance < 0 && !hasEnoughProtein) {
@@ -1163,7 +1171,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const future7FatPct = Math.max(minFatPctFloor, Math.min(99, (future7FatMass / future7Weight) * 100));
     
     // 30 Days Calculations
-    const change30Weight = (avgDailyBalance * 30) / 7700;
+    const change30Weight = (avgDailyBalance * 30) / 7700 * FORECAST_DAMP;
     let gain30Muscle = 0;
     
     if (avgDailyBalance < 0 && !hasEnoughProtein) {
@@ -1188,13 +1196,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const future30FatPct = Math.max(minFatPctFloor, Math.min(99, (future30FatMass / future30Weight) * 100));
     
     // Update Dashboard UI with deltas
-    formatProjText(el.proj7Weight, change7Weight, 'weight', future7Weight, 'kg', currentWeight);
-    formatProjText(el.proj7Muscle, gain7Muscle, 'muscle', future7Muscle, 'kg', currentMuscle);
-    formatProjText(el.proj7Fat, future7FatPct - currentFatPct, 'fat', future7FatPct, '%', currentFatPct);
+    formatProjText(el.proj7Weight, change7Weight, 'weight', future7Weight, 'kg', currentWeight, FORECAST_ERR[7].weight);
+    formatProjText(el.proj7Muscle, gain7Muscle, 'muscle', future7Muscle, 'kg', currentMuscle, FORECAST_ERR[7].muscle);
+    formatProjText(el.proj7Fat, future7FatPct - currentFatPct, 'fat', future7FatPct, '%', currentFatPct, FORECAST_ERR[7].fat);
     
-    formatProjText(el.proj30Weight, change30Weight, 'weight', future30Weight, 'kg', currentWeight);
-    formatProjText(el.proj30Muscle, gain30Muscle, 'muscle', future30Muscle, 'kg', currentMuscle);
-    formatProjText(el.proj30Fat, future30FatPct - currentFatPct, 'fat', future30FatPct, '%', currentFatPct);
+    formatProjText(el.proj30Weight, change30Weight, 'weight', future30Weight, 'kg', currentWeight, FORECAST_ERR[30].weight);
+    formatProjText(el.proj30Muscle, gain30Muscle, 'muscle', future30Muscle, 'kg', currentMuscle, FORECAST_ERR[30].muscle);
+    formatProjText(el.proj30Fat, future30FatPct - currentFatPct, 'fat', future30FatPct, '%', currentFatPct, FORECAST_ERR[30].fat);
     
     // Calculate and render projected size measurements (waist, chest, biceps)
     const curSizes = calculateBodyMeasurements(p.gender, p.height, currentWeight, currentFatPct);
@@ -1215,13 +1223,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const f30Chest = anchored(curChest, sizes30.chest, curSizes.chest);
     const f30Biceps = anchored(curBiceps, sizes30.biceps, curSizes.biceps);
     
-    formatProjText(el.proj7Waist, f7Waist - curWaist, 'waist', f7Waist, 'cm', curWaist);
-    formatProjText(el.proj7Chest, f7Chest - curChest, 'chest', f7Chest, 'cm', curChest);
-    formatProjText(el.proj7Biceps, f7Biceps - curBiceps, 'biceps', f7Biceps, 'cm', curBiceps);
+    formatProjText(el.proj7Waist, f7Waist - curWaist, 'waist', f7Waist, 'cm', curWaist, SIZE_ERR.waist);
+    formatProjText(el.proj7Chest, f7Chest - curChest, 'chest', f7Chest, 'cm', curChest, SIZE_ERR.chest);
+    formatProjText(el.proj7Biceps, f7Biceps - curBiceps, 'biceps', f7Biceps, 'cm', curBiceps, SIZE_ERR.biceps);
     
-    formatProjText(el.proj30Waist, f30Waist - curWaist, 'waist', f30Waist, 'cm', curWaist);
-    formatProjText(el.proj30Chest, f30Chest - curChest, 'chest', f30Chest, 'cm', curChest);
-    formatProjText(el.proj30Biceps, f30Biceps - curBiceps, 'biceps', f30Biceps, 'cm', curBiceps);
+    formatProjText(el.proj30Waist, f30Waist - curWaist, 'waist', f30Waist, 'cm', curWaist, SIZE_ERR.waist);
+    formatProjText(el.proj30Chest, f30Chest - curChest, 'chest', f30Chest, 'cm', curChest, SIZE_ERR.chest);
+    formatProjText(el.proj30Biceps, f30Biceps - curBiceps, 'biceps', f30Biceps, 'cm', curBiceps, SIZE_ERR.biceps);
     
     // Update Body Tab Detailed statistics
     el.currentDailyDeficit.textContent = `${Math.round(netDeficit)} kcal`;
@@ -1238,11 +1246,16 @@ document.addEventListener('DOMContentLoaded', () => {
     updateDynamicProjectionStatusUI(-avgDailyBalance, hasEnoughProtein, hasWeightTraining, sum7WeightTrainingMins, avgDailyProtein, targetProtein);
   }
 
-  function formatProjText(element, changeValue, metricType, futureValue, unit, currentValue) {
+  function formatProjText(element, changeValue, metricType, futureValue, unit, currentValue, errRange) {
     let color = 'var(--text-primary)';
     let arrow = '';
+    // 變化量小於過去平均誤差：其實分不出增減，顯示為「大致持平」
+    const withinError = errRange !== undefined && Math.abs(changeValue) < errRange;
     
-    if (changeValue < -0.01) {
+    if (withinError) {
+      color = 'var(--text-secondary)';
+      arrow = ' →';
+    } else if (changeValue < -0.01) {
       color = 'var(--accent-green)';
       arrow = ' ↓';
     } else if (changeValue > 0.01) {
@@ -1266,8 +1279,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStr = currentValue.toFixed(decimalPlaces);
         element.innerHTML = `
           ${futureStr}${spacing}${unit}${arrow}
-          <div class="proj-delta" style="font-size: 10px; font-weight: 500; opacity: 0.8; margin-top: 3px; white-space: nowrap;">
-            現 ${currentStr}${unit} (${changeStr}${spacing}${unit})
+          <div class="proj-delta" style="font-size: 10px; font-weight: 500; opacity: 0.8; margin-top: 3px; white-space: normal; line-height: 1.4;">
+            現 ${currentStr}${unit} (${changeStr}${spacing}${unit})${errRange !== undefined ? ` · 誤差約 ±${errRange}${spacing}${unit}` : ''}${withinError ? ' · 大致持平' : ''}
           </div>
         `;
       } else {
@@ -2674,7 +2687,7 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     }
     
-    const dailyProjWeightChange = avgDailyBalance / 7700;
+    const dailyProjWeightChange = avgDailyBalance / 7700 * FORECAST_DAMP;
     
     const restDays = parseInt(p.restDays) || 0;
     const trainingDays = Math.max(0, 7 - restDays);
@@ -3291,36 +3304,38 @@ document.addEventListener('DOMContentLoaded', () => {
           el.dailyComparisonBox.classList.remove('plateau-warning');
         }
 
+        // 門檻依過去紀錄的單日波動（約 90% 的日子落在這範圍內）：體重 ±0.7 kg、肌肉 ±0.7 kg、體脂 ±1.0%
+        // 落在波動範圍內就不解讀成「變好 / 變差」，避免把量測誤差當成成果
         if (hasActWeight) {
           const dW = actWeight - pred.weight;
-          if (dW < -0.5) {
-            comments.push(`💡 <strong>體重分析</strong>：實測體重顯著低於科學預估值（-${Math.abs(dW).toFixed(2)} kg）。這通常代表體內水分大幅排出（如低碳飲食、排汗較多），或近期熱量赤字超乎預期。請記得適時補充水分與電解質！`);
-          } else if (dW > 0.5) {
-            comments.push(`💡 <strong>體重分析</strong>：實測體重高於科學預估值（+${dW.toFixed(2)} kg）。別擔心，這通常是由於高碳水飲食導致的糖原儲水、或是鈉攝取過多引起的水份滯留，並非真的長了脂肪。持續保持熱量赤字即可！`);
+          if (dW < -0.7) {
+            comments.push(`💡 <strong>體重</strong>：比估算低 ${Math.abs(dW).toFixed(1)} kg，超過平常的單日波動（約 ±0.7 kg）。常見原因是水分少、前一天吃得少，或有沒記到的活動；看接下來幾天是否持續偏低。`);
+          } else if (dW > 0.7) {
+            comments.push(`💡 <strong>體重</strong>：比估算高 ${dW.toFixed(1)} kg，超過平常的單日波動（約 ±0.7 kg）。可能是水分、鹽分或沒記到的飲食；如果連續幾天都偏高，代表實際攝取比紀錄多。`);
           } else {
-            comments.push(`💡 <strong>體重分析</strong>：體重與預估值極為接近（${dW >= 0 ? '+' : ''}${dW.toFixed(2)} kg）。您的能量平衡與飲食消耗計算極度精準，身體正穩定照著計劃前進。`);
+            comments.push(`💡 <strong>體重</strong>：和估算差 ${dW >= 0 ? '+' : ''}${dW.toFixed(1)} kg，在平常的單日波動內（約 ±0.7 kg）。`);
           }
         }
         
         if (hasActMuscle) {
           const dM = actMuscle - pred.muscle;
-          if (dM < -0.3) {
-            comments.push(`💪 <strong>肌肉分析</strong>：實測肌肉量低於預期（-${Math.abs(dM).toFixed(2)} kg）。這可能是由於脫水造成的肌肉飽滿度下降，或是近期蛋白質攝取不夠。建議每日補充足夠的蛋白質（目標: ${p.targetProtein}g），並維持適當的重訓刺激。`);
-          } else if (dM > 0.3) {
-            comments.push(`💪 <strong>肌肉分析</strong>：肌肉量高於預估值（+${dM.toFixed(2)} kg）。非常棒的表現！這代表阻力訓練帶來的充血或增肌效果顯著。請持續維持高品質的蛋白質攝取與力量訓練強度！`);
+          if (dM < -0.7) {
+            comments.push(`💪 <strong>肌肉量</strong>：比估算低 ${Math.abs(dM).toFixed(1)} kg，超過體脂計平常的波動（約 ±0.7 kg）。體脂計的肌肉量很受身體水分影響，連續一兩週都偏低才需要注意蛋白質（目標 ${p.targetProtein}g）和訓練強度。`);
+          } else if (dM > 0.7) {
+            comments.push(`💪 <strong>肌肉量</strong>：比估算高 ${dM.toFixed(1)} kg，超過體脂計平常的波動（約 ±0.7 kg）。單日偏高多半是水分；連續一兩週都偏高，才比較可能是真的增加。`);
           } else {
-            comments.push(`💪 <strong>肌肉分析</strong>：肌肉量穩定維持在預期範圍內。這顯示您目前的訓練與營養補給足以維持肌肉量，避免了肌肉流失。`);
+            comments.push(`💪 <strong>肌肉量</strong>：和估算差 ${dM >= 0 ? '+' : ''}${dM.toFixed(1)} kg，在體脂計平常的波動內（約 ±0.7 kg），可視為持平。`);
           }
         }
         
         if (hasActFat) {
           const dF = actFat - pred.fatPercent;
-          if (dF < -0.5) {
-            comments.push(`🔥 <strong>體脂分析</strong>：體脂率優於預估值（-${Math.abs(dF).toFixed(1)}%）。這是極佳的減脂訊號，代表純脂肪消耗成效亮眼！請繼續保持乾淨的飲食習慣，避免精緻糖類。`);
-          } else if (dF > 0.5) {
-            comments.push(`🔥 <strong>體脂分析</strong>：實測體脂率高於預估值（+${dF.toFixed(1)}%）。體脂率測量（特別是家用體脂計）極易受到身體導電度與水分波動影響。建議固定測量時間（如晨起空腹），並拉長一到兩週觀察趨勢，不需因單日波動氣餒。`);
+          if (dF < -1.0) {
+            comments.push(`🔥 <strong>體脂率</strong>：比估算低 ${Math.abs(dF).toFixed(1)}%，超過平常的波動（約 ±1%）。家用體脂計受水分影響大，建議固定在早上空腹量，看一兩週的趨勢再下結論。`);
+          } else if (dF > 1.0) {
+            comments.push(`🔥 <strong>體脂率</strong>：比估算高 ${dF.toFixed(1)}%，超過平常的波動（約 ±1%）。家用體脂計受水分影響大，建議固定在早上空腹量，看一兩週的趨勢再下結論。`);
           } else {
-            comments.push(`🔥 <strong>體脂分析</strong>：體脂表現符合預期。您的脂肪控制正處於良性進程中，繼續保持目前的宏量營養素比例即可！`);
+            comments.push(`🔥 <strong>體脂率</strong>：和估算差 ${dF >= 0 ? '+' : ''}${dF.toFixed(1)}%，在平常的波動內（約 ±1%）。`);
           }
         }
         
