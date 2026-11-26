@@ -859,15 +859,15 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // 銀行使用「基礎消耗（不含校正值）」，避免歷史存款隨校正值改變
-    const baseTdee = getBaseTdee();
+    // 銀行使用「校正後的消耗」（基礎消耗＋依實際體重變化算出的校正值），存款才會對應到真正的體重變化
+    const baseTdee = calculateTdee();
     const { weekDays, weekendDays } = getWeekRange(currentActiveDate);
 
     let totalDeficit = 0;
     let weekendSurplus = 0;
 
-    // 1. 週一至週五：赤字 = (基礎消耗 + 運動淨消耗) − 攝取
-    //    沒有飲食紀錄但有運動的日子：假設攝取 = 基礎消耗，運動淨消耗直接計為存款
+    // 1. 週一至週五：赤字 = (校正後消耗 + 運動淨消耗) − 攝取
+    //    沒有飲食紀錄但有運動的日子：假設攝取 = 校正後消耗，運動淨消耗直接計為存款
     weekDays.forEach(d => {
       const entry = state.dailyLogs[d];
       if (!entry) return;
@@ -886,7 +886,7 @@ document.addEventListener('DOMContentLoaded', () => {
     el.bankDepositVal.style.color = displayDeposit < 0 ? '#ef4444' : 'var(--accent-green)';
     
     // 2. Calculate Saturday-Sunday withdrawals (consumption exceeding TDEE + Workouts)
-    // 週末：攝取超過（基礎消耗 + 運動淨消耗）的部分才計入提領；沒有飲食紀錄的日子不計
+    // 週末：攝取超過（校正後消耗 + 運動淨消耗）的部分才計入提領；沒有飲食紀錄的日子不計
     weekendDays.forEach(d => {
       const entry = state.dailyLogs[d];
       if (entry && entry.diet && entry.diet.length > 0) {
