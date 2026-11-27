@@ -859,58 +859,55 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
     
-    // 週末不記錄：校正後的消耗（TDEE）是用「平日的飲食紀錄」對照「整週的體重變化」算出來的，
-    // 已經把你平常週末多吃（或少吃）的部分算進去。所以只要拿平日跟它比，就能推估整週的體重變化；
-    // 週末的紀錄（就算偶爾有）也不納入，避免重複計算。
-    const tdee = calculateTdee();
+    // 平日對照「日常消耗」（BMR × 1.2 ＋ 運動），一般三餐不會被當成超標。
+    // 週末不記錄：依過去體重變化算出的修正值，代表週末和沒記到的飲食，另外列出，兩者加起來推估整週體重。
+    const baseTdee = getBaseTdee();
+    const offset = calculateAdaptiveTdeeOffset();          // 每個記錄日的修正（負數 = 有沒記到的額外攝取）
     const { weekDays } = getWeekRange(currentActiveDate);
 
-    let totalDeficit = 0;
+    let weekdayDiff = 0;   // 正數 = 平日比日常消耗少吃
     let loggedDays = 0;
     weekDays.forEach(d => {
       if (d > currentActiveDate) return;
       const entry = state.dailyLogs[d];
-      if (!entry || !entry.diet || entry.diet.length === 0) return;   // 沒記飲食的平日不計
+      if (!entry || !entry.diet || entry.diet.length === 0) return;
       const intake = entry.diet.reduce((sum, item) => sum + (parseFloat(item.calories) || 0), 0);
-      totalDeficit += (tdee + workoutNetKcal(entry.workouts)) - intake;
+      weekdayDiff += (baseTdee + workoutNetKcal(entry.workouts)) - intake;
       loggedDays++;
     });
+    const diff = Math.round(weekdayDiff);
+    el.bankDepositVal.textContent = `${diff > 0 ? '少 ' : diff < 0 ? '多 ' : ''}${Math.abs(diff)} kcal`;
+    el.bankDepositVal.style.color = diff < 0 ? '#ef4444' : 'var(--accent-green)';
 
-    const deposit = Math.round(totalDeficit);
-    el.bankDepositVal.textContent = `${deposit > 0 ? '+' : ''}${deposit} kcal`;
-    el.bankDepositVal.style.color = deposit < 0 ? '#ef4444' : 'var(--accent-green)';
-
-    // 平日平均每天的差額，套到整週 7 天（週末照平常習慣），換算成體重；和首頁推估一樣打折
-    const weekKg = loggedDays > 0 ? (-(totalDeficit / loggedDays) * 7 / KCAL_PER_KG_FAT) * FORECAST_DAMP : 0;
+    // 整週推估 = 平日平均差額 ＋ 修正值，套到 7 天，和首頁推估一樣打折
+    const perDay = loggedDays > 0 ? (weekdayDiff / loggedDays) + offset : 0;   // 正數 = 整體少吃
+    const weekKg = loggedDays > 0 ? (-perDay * 7 / KCAL_PER_KG_FAT) * FORECAST_DAMP : 0;
     const flat = Math.abs(weekKg) < 0.1;
     const kgText = loggedDays === 0 ? '--' : (flat ? '≈ 持平' : `${weekKg > 0 ? '+' : ''}${weekKg.toFixed(1)} kg`);
     el.bankWithdrawVal.textContent = kgText;
     el.bankWithdrawVal.style.color = loggedDays === 0 || flat ? 'var(--text-secondary)' : (weekKg > 0 ? '#ef4444' : 'var(--accent-green)');
 
-    // 進度條改成「本週已記錄幾天平日」
     el.bankRemainingPercent.textContent = `${loggedDays} / 5 天`;
     el.bankProgressBar.style.width = `${(loggedDays / 5) * 100}%`;
     el.bankProgressBar.style.background = 'linear-gradient(90deg, var(--accent-purple), var(--accent-pink))';
 
-    const dayOfWeek = new Date(currentActiveDate + 'T00:00:00').getDay(); // 0 週日, 6 週六
+    const extraWeek = Math.round(-offset * 5 / 100) * 100;   // 週末與沒記到的部分，換算成每週
+    const dayOfWeek = new Date(currentActiveDate + 'T00:00:00').getDay();
     const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-    const absDep = Math.abs(deposit);
     let msgHTML = '';
     if (loggedDays === 0) {
-      msgHTML = isWeekend
-        ? `📅 <strong>週末不記錄。</strong>這週平日沒有飲食紀錄，無法結算。`
-        : `📅 <strong>本週還沒有平日紀錄。</strong>記錄平日的飲食後，這裡會推估照平常的週末吃法，這週體重會怎麼變。`;
+      msgHTML = `📅 <strong>本週還沒有平日紀錄。</strong>記錄平日的飲食後，這裡會推估這週的體重變化。`;
     } else {
       const head = isWeekend ? `📅 <strong>週末不記錄，本週平日結算（${loggedDays} 天）：</strong><br>` : '';
-      if (deposit > 0) {
-        msgHTML = `${head}平日比打平點少吃 <strong style="color: var(--accent-green);">${absDep} kcal</strong>。照你平常的週末吃法，這週體重預計 <strong>${kgText}</strong>。週末吃得比平常多，就會把這些抵掉。`;
-      } else if (deposit < 0) {
-        msgHTML = `${head}平日比打平點多吃 <strong style="color: #ef4444;">${absDep} kcal</strong>。照你平常的週末吃法，這週體重預計 <strong>${kgText}</strong>。${isWeekend ? '' : '接下來的平日少吃一點，或週末比平常收斂，就能拉回來。'}`;
-      } else {
-        msgHTML = `${head}平日剛好吃在打平點，照平常的週末吃法，這週體重預計持平。`;
-      }
+      const wd = diff >= 0
+        ? `平日吃得不錯，比日常消耗少 <strong style="color: var(--accent-green);">${Math.abs(diff)} kcal</strong>。`
+        : `平日比日常消耗多 <strong style="color: #ef4444;">${Math.abs(diff)} kcal</strong>。`;
+      const we = extraWeek >= 300
+        ? `依過去的體重變化推算，週末和沒記到的部分平均每週多出約 <strong>${extraWeek} kcal</strong>，所以整週下來體重預計 <strong>${kgText}</strong>。想讓體重往下，從週末下手最有效，平日照常吃就好。`
+        : `照你平常的週末吃法，整週下來體重預計 <strong>${kgText}</strong>。`;
+      msgHTML = head + wd + we;
     }
-    msgHTML += `<div style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">打平點 = 校正後消耗 ${tdee} kcal＋當天運動。平日吃到這個量，加上你平常的週末，體重大致持平。</div>`;
+    msgHTML += `<div style="margin-top: 6px; font-size: 10px; color: var(--text-muted);">日常消耗 ${baseTdee} kcal（BMR × 1.2）＋當天運動。</div>`;
     el.bankMsgBox.innerHTML = msgHTML;
   }
 
@@ -3368,7 +3365,9 @@ document.addEventListener('DOMContentLoaded', () => {
     el.dashboardDate.textContent = `${dateObj.getMonth() + 1}月${dateObj.getDate()}日`;
     
     // 2. TDEE Calculations
-    const tdee = calculateTdee();
+    // 首頁每天的熱量用「日常消耗」（BMR × 1.2）對照：這才是身體一天大約消耗的量。
+    // 依體重變化算出的修正值（主要是週末與沒記到的飲食）只用在體重推估和卡路里銀行，不拿來壓低每天的額度。
+    const tdee = getBaseTdee();
     el.tdeeDisplay.textContent = `${tdee} kcal`;
     el.profileTdeeDisplay.textContent = `${tdee} kcal`;
     el.profileBmrDisplay.textContent = `${Math.round(calculateBmr())} kcal`;
@@ -3378,12 +3377,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const offsetText = `校正 ${calib.offset >= 0 ? '+' : ''}${calib.offset} kcal`;
     if (el.tdeeCalibratedBadge) {
       el.tdeeCalibratedBadge.textContent = offsetText;
-      el.tdeeCalibratedBadge.style.display = calib.ok ? 'inline-block' : 'none';
+      el.tdeeCalibratedBadge.style.display = 'none';
     }
     if (el.adaptiveTdeeInfo) el.adaptiveTdeeInfo.style.display = 'block';
     if (el.adaptiveTdeeOffsetVal) el.adaptiveTdeeOffsetVal.textContent = calib.ok ? offsetText : '尚未校正';
     if (el.adaptiveTdeeDetail) el.adaptiveTdeeDetail.textContent = calib.ok
-      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重（7 天移動平均）計算。週末不記錄：你平常週末多吃的部分已經算進這個數字，所以它代表「平日吃到這裡，體重就會持平」的熱量。`
+      ? `依近 ${CAL_WINDOW_DAYS} 天中 ${calib.dietDays} 天飲食紀錄、${calib.weightPoints} 筆體重（7 天移動平均）計算。這個修正值代表週末和沒記到的飲食（平均每個記錄日），只用來推估體重，不代表身體消耗變少；每天的熱量仍以日常消耗 ${getBaseTdee()} kcal 對照。`
       : `${calib.reason}。目前使用基礎消耗（BMR × 1.2）加上運動消耗。`;
     
     // 3. Calorie Ring Totals
@@ -3616,9 +3615,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const inNow = Math.round(avgDailyIn);
     const rows = [
       { icon: '📍', label: `維持現狀（平日平均 ${inNow} kcal）`, bal: avgDailyBalance },
-      { icon: '🥗', label: `平日每天少吃 200 kcal（約 ${inNow - 200}）`, bal: avgDailyBalance - 200 * 5 / 7 },
-      { icon: '🚶', label: `少吃 300（約 ${inNow - 300}）＋每天多走 30 分鐘`, bal: avgDailyBalance - 300 * 5 / 7 - walk30 },
-      { icon: '🥦', label: `少吃 500（約 ${inNow - 500}）＋每天多走 30 分鐘`, bal: avgDailyBalance - 500 * 5 / 7 - walk30 }
+      { icon: '🍽️', label: '週末每天比平常少吃 500 kcal', bal: avgDailyBalance - 500 * 2 / 7 },
+      { icon: '🚶', label: '週末少吃 500＋每天多走 30 分鐘', bal: avgDailyBalance - 500 * 2 / 7 - walk30 },
+      { icon: '🥗', label: '週末少吃 500＋平日每天少吃 200', bal: avgDailyBalance - 500 * 2 / 7 - 200 * 5 / 7 }
     ];
     const rowsHTML = rows.map((r, i) => {
       const v = kg30(r.bal);
@@ -3627,15 +3626,10 @@ document.addEventListener('DOMContentLoaded', () => {
         <strong style="font-size:13px; white-space:nowrap; color:${colorOf(v)};">${fmtKg(v)}</strong>
       </div>`;
     }).join('');
-    // 要持平：平日需要少吃多少
-    let flatLine = '';
-    if (avgDailyBalance > 0) {
-      const need = Math.round(avgDailyBalance * 7 / 5 / 10) * 10;
-      const need2 = Math.max(0, Math.round((avgDailyBalance - walk30) * 7 / 5 / 10) * 10);
-      flatLine = `要讓體重持平：平日吃到約 <strong>${inNow - need} kcal</strong>（每天少 ${need}）；如果每天多走 30 分鐘，吃到約 <strong>${inNow - need2} kcal</strong> 就夠。`;
-    } else {
-      flatLine = `照現在的吃法，體重已經在往下走，繼續保持就好。`;
-    }
+    const extraWeek = Math.round(-calculateAdaptiveTdeeOffset() * 5 / 100) * 100;
+    const flatLine = extraWeek >= 300
+      ? `平日吃 ${inNow} kcal 左右是正常份量（日常消耗約 ${getBaseTdee()} kcal）。差距主要來自週末和沒記到的部分，平均每週約 <strong>${extraWeek} kcal</strong>，不需要把平日壓得很低。`
+      : `平日吃 ${inNow} kcal 左右，日常消耗約 ${getBaseTdee()} kcal。`;
     box.innerHTML = `
       <div style="margin-top: 16px; padding: 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(15,179,122,0.08), rgba(47,140,255,0.08)); border: 1px solid rgba(15,179,122,0.18);">
         <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px; color: var(--text-primary);">🎯 如果這樣做，30 天後體重</div>

@@ -441,9 +441,7 @@ a:hover {
   font-size: 24px;
   font-weight: 800;
   line-height: 1.1;
-  background: linear-gradient(135deg, var(--accent-orange), var(--accent-pink));
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+  /* 顏色由程式依赤字（綠）／超出（紅）設定 */
 }
 .ring-text .unit {
   font-size: 10px;

@@ -17,7 +17,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@200;300;400;500;600;700;800&display=swap" rel="stylesheet">
   
   <!-- CSS Styling -->
-  <link rel="stylesheet" href="style.css?v=20261126_bright">
+  <link rel="stylesheet" href="style.css?v=20261127_net">
 </head>
 <body>
 
@@ -175,7 +175,7 @@
                   <div class="cal-stat-item">
                     <div class="stat-indicator tdee-dot"></div>
                     <div class="stat-info">
-                      <span class="lbl">打平點 TDEE（含平常週末）<span id="tdee-calibrated-badge" style="font-size:9px; padding:1px 4px; border-radius:3px; background:rgba(139,92,246,0.15); color:var(--accent-purple-light); margin-left:4px; display:none;">已動態校準</span></span>
+                      <span class="lbl">TDEE（日常消耗）<span id="tdee-calibrated-badge" style="font-size:9px; padding:1px 4px; border-radius:3px; background:rgba(139,92,246,0.15); color:var(--accent-purple-light); margin-left:4px; display:none;">已動態校準</span></span>
                       <span id="tdee-val-display" class="val">0 kcal</span>
                     </div>
                   </div>
@@ -201,7 +201,7 @@
               <div class="card-body">
                 <div class="bank-stats" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px;">
                   <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
-                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">本週平日差額</span>
+                    <span style="font-size: 11px; color: var(--text-secondary); display: block; margin-bottom: 4px;">本週平日（對照日常消耗）</span>
                     <span id="bank-deposit-val" style="font-size: 18px; font-weight: 700; color: var(--accent-green);">0 kcal</span>
                   </div>
                   <div class="bank-stat" style="background: rgba(var(--ink-rgb), 0.02); padding: 10px; border-radius: 8px; border: 1px solid var(--glass-border); text-align: center;">
@@ -224,7 +224,7 @@
                   正在計算您的週間卡路里存款與週末享用額度...
                 </div>
                 <p style="font-size: 11px; color: var(--text-secondary); margin-top: 8px; line-height: 1.5;">
-                  註：運動消耗為 MET 估算值，誤差約 ±20–30%。銀行以校正後的消耗（TDEE）計算；這個數字是用平日紀錄對照整週體重變化算出來的，已包含你平常週末的吃法，所以週末不用記錄。週末就算有紀錄也不納入。
+                  註：運動消耗為 MET 估算值，誤差約 ±20–30%。平日以日常消耗（BMR × 1.2）＋運動對照。週末不記錄，「週末和沒記到的部分」是依過去體重變化推算的平均值，兩者合起來推估整週體重。週末就算有紀錄也不納入。
                 </p>
               </div>
             </div>
@@ -1440,6 +1440,6 @@
   <!-- Chart.js CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <!-- JavaScript Application Logic -->
-  <script src="app.js?v=20261127_encourage"></script>
+  <script src="app.js?v=20261127_normaldays"></script>
 </body>
 </html>
