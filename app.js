@@ -1145,6 +1145,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const future30FatPct = Math.max(minFatPctFloor, Math.min(99, (future30FatMass / future30Weight) * 100));
     
     // Update Dashboard UI with deltas
+    renderScenarios(avgDailyIn, avgDailyBalance, currentWeight, loggedDietDays);
     formatProjText(el.proj7Weight, change7Weight, 'weight', future7Weight, 'kg', currentWeight, FORECAST_ERR[7].weight);
     formatProjText(el.proj7Muscle, gain7Muscle, 'muscle', future7Muscle, 'kg', currentMuscle, FORECAST_ERR[7].muscle);
     formatProjText(el.proj7Fat, future7FatPct - currentFatPct, 'fat', future7FatPct, '%', currentFatPct, FORECAST_ERR[7].fat);
@@ -3595,6 +3596,145 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 12. Update Calorie Bank
     updateCalorieBankUI();
+
+    // 13. 你的進步
+    updateAchievementsUI();
+  }
+
+
+  // ---- 「如果這樣做」試算：同一套模型，只改變平日的吃法或走路 ----
+  // 平日少吃 r kcal：一週少 5r，換算成每天約 r × 5/7（週末不記錄、照平常習慣）
+  // 每天多走 30 分鐘：用目前體重估算淨消耗（扣掉本來就會消耗的基礎代謝）
+  function renderScenarios(avgDailyIn, avgDailyBalance, currentWeight, loggedDietDays) {
+    const box = document.getElementById('proj-scenarios');
+    if (!box) return;
+    if (!loggedDietDays) { box.innerHTML = ''; return; }
+    const walk30 = Math.max(0, 3.5 * currentWeight * 0.5 - calculateBmr() / 1440 * 30); // 中速走路 MET≈3.5
+    const kg30 = bal => bal * 30 / KCAL_PER_KG_FAT * FORECAST_DAMP;
+    const fmtKg = v => Math.abs(v) < 0.1 ? '≈ 持平' : `${v > 0 ? '+' : ''}${v.toFixed(1)} kg`;
+    const colorOf = v => Math.abs(v) < 0.1 ? 'var(--text-secondary)' : (v > 0 ? '#ef4444' : 'var(--accent-green)');
+    const inNow = Math.round(avgDailyIn);
+    const rows = [
+      { icon: '📍', label: `維持現狀（平日平均 ${inNow} kcal）`, bal: avgDailyBalance },
+      { icon: '🥗', label: `平日每天少吃 200 kcal（約 ${inNow - 200}）`, bal: avgDailyBalance - 200 * 5 / 7 },
+      { icon: '🚶', label: `少吃 300（約 ${inNow - 300}）＋每天多走 30 分鐘`, bal: avgDailyBalance - 300 * 5 / 7 - walk30 },
+      { icon: '🥦', label: `少吃 500（約 ${inNow - 500}）＋每天多走 30 分鐘`, bal: avgDailyBalance - 500 * 5 / 7 - walk30 }
+    ];
+    const rowsHTML = rows.map((r, i) => {
+      const v = kg30(r.bal);
+      return `<div style="display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; ${i === 0 ? 'background: rgba(var(--ink-rgb), 0.04);' : ''}">
+        <span style="font-size:12px; color: var(--text-primary);">${r.icon} ${r.label}</span>
+        <strong style="font-size:13px; white-space:nowrap; color:${colorOf(v)};">${fmtKg(v)}</strong>
+      </div>`;
+    }).join('');
+    // 要持平：平日需要少吃多少
+    let flatLine = '';
+    if (avgDailyBalance > 0) {
+      const need = Math.round(avgDailyBalance * 7 / 5 / 10) * 10;
+      const need2 = Math.max(0, Math.round((avgDailyBalance - walk30) * 7 / 5 / 10) * 10);
+      flatLine = `要讓體重持平：平日吃到約 <strong>${inNow - need} kcal</strong>（每天少 ${need}）；如果每天多走 30 分鐘，吃到約 <strong>${inNow - need2} kcal</strong> 就夠。`;
+    } else {
+      flatLine = `照現在的吃法，體重已經在往下走，繼續保持就好。`;
+    }
+    box.innerHTML = `
+      <div style="margin-top: 16px; padding: 14px; border-radius: 14px; background: linear-gradient(135deg, rgba(15,179,122,0.08), rgba(47,140,255,0.08)); border: 1px solid rgba(15,179,122,0.18);">
+        <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px; color: var(--text-primary);">🎯 如果這樣做，30 天後體重</div>
+        <div style="font-size: 11px; color: var(--text-secondary); margin-bottom: 8px;">用同一套模型試算，週末照平常習慣</div>
+        ${rowsHTML}
+        <div style="font-size: 12px; margin-top: 10px; color: var(--text-primary);">${flatLine}</div>
+        <div style="font-size: 10px; margin-top: 6px; color: var(--text-muted);">每個數字的誤差約 ±0.7 kg，但不同做法之間的差距是比較確定的。</div>
+      </div>`;
+  }
+
+  // ---- 你的進步：只列出真實紀錄裡、超過量測波動的進步 ----
+  function updateAchievementsUI() {
+    const box = document.getElementById('achievements-body');
+    if (!box) return;
+    const logs = state.dailyLogs || {};
+    const pad = n => String(n).padStart(2, '0');
+    const fmt = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const today = currentActiveDate;
+    const end = new Date(today + 'T00:00:00');
+    const monthStart = new Date(end.getFullYear(), end.getMonth(), 1);
+    const target = parseFloat(state.profile.targetProtein) || 0;
+
+    // 本月：平日記錄、蛋白質達標、訓練、走路
+    let wdTotal = 0, wdLogged = 0, protOk = 0, trainN = 0, trainMin = 0, walkMin = 0;
+    for (let d = new Date(monthStart); d <= end; d.setDate(d.getDate() + 1)) {
+      const e = logs[fmt(d)];
+      const dow = d.getDay();
+      const hasDiet = e && e.diet && e.diet.length > 0;
+      if (dow >= 1 && dow <= 5) { wdTotal++; if (hasDiet) wdLogged++; }
+      if (!e) continue;
+      if (hasDiet && target) {
+        const prot = e.diet.reduce((sum, it) => sum + (parseFloat(it.protein) || 0), 0);
+        if (prot >= target) protOk++;
+      }
+      (e.workouts || []).forEach(w => {
+        const m = parseFloat(w.duration) || 0;
+        if (w.type === 'walking') walkMin += m;
+        else if (isWeightTraining(w)) { trainN++; trainMin += m; }
+      });
+    }
+
+    // 平日連續記錄（週末不記錄，所以跳過週末）
+    let streak = 0;
+    for (let d = new Date(end); ; d.setDate(d.getDate() - 1)) {
+      const dow = d.getDay();
+      if (dow === 0 || dow === 6) continue;
+      const e = logs[fmt(d)];
+      if (e && e.diet && e.diet.length > 0) streak++;
+      else if (fmt(d) === today) continue; // 今天還沒記不算中斷
+      else break;
+      if (streak > 400) break;
+    }
+
+    const items = [];
+    if (streak >= 2) items.push(`🔥 平日連續記錄 <strong>${streak}</strong> 天`);
+    if (wdTotal > 0) items.push(`📝 本月平日記錄 <strong>${wdLogged} / ${wdTotal}</strong> 天`);
+    if (trainN > 0) items.push(`💪 本月訓練 <strong>${trainN}</strong> 次，共 ${Math.round(trainMin)} 分鐘`);
+    if (walkMin > 0) items.push(`🚶 本月走路 <strong>${Math.round(walkMin)}</strong> 分鐘`);
+    if (protOk > 0) items.push(`🥚 本月蛋白質達標 <strong>${protOk}</strong> 天`);
+
+    // 身體變化：開始記錄的前 21 天 vs 最近 21 天（平均），只列出超過量測波動的進步
+    const allDates = Object.keys(logs).filter(d => d <= today).sort();
+    const avgOf = (key, from, to) => {
+      const vals = allDates.filter(d => d >= from && d <= to).map(d => parseFloat(logs[d][key])).filter(v => v > 0);
+      return vals.length >= 3 ? vals.reduce((a, b) => a + b, 0) / vals.length : null;
+    };
+    const body = [];
+    if (allDates.length) {
+      const first = new Date(allDates[0] + 'T00:00:00');
+      const baseEnd = new Date(first); baseEnd.setDate(baseEnd.getDate() + 20);
+      const recentStart = new Date(end); recentStart.setDate(recentStart.getDate() - 20);
+      if (recentStart > baseEnd) {
+        const span = (k) => {
+          const a = avgOf(k, fmt(first), fmt(baseEnd)); const b = avgOf(k, fmt(recentStart), today);
+          return a !== null && b !== null ? b - a : null;
+        };
+        const dChest = span('chest'), dWaist = span('waist'), dArm = span('biceps');
+        const dW = span('weight'), dM = span('muscle');
+        const since = `${first.getMonth() + 1} 月開始記錄以來`;
+        if (dChest !== null && dChest >= 0.6) {
+          const waistNote = dWaist !== null && Math.abs(dWaist) < 0.6 ? '，腰圍持平' : '';
+          body.push(`📏 胸圍 <strong>+${dChest.toFixed(1)} cm</strong>${waistNote}`);
+        }
+        if (dWaist !== null && dWaist <= -0.6) body.push(`📏 腰圍 <strong>${dWaist.toFixed(1)} cm</strong>`);
+        if (dArm !== null && dArm >= 0.2) body.push(`💪 手臂圍 <strong>+${dArm.toFixed(1)} cm</strong>`);
+        if (dW !== null && dW <= -0.7) {
+          const keep = dM !== null && Math.abs(dM) < 0.7 ? '，肌肉量維持住（變化在量測波動內）' : '';
+          body.push(`⚖️ 體重 <strong>${dW.toFixed(1)} kg</strong>${keep}`);
+        }
+        if (dM !== null && dM >= 0.7) body.push(`💪 肌肉量 <strong>+${dM.toFixed(1)} kg</strong>`);
+        if (body.length) body.unshift(`<span style="font-size:11px; color: var(--text-secondary);">${since}（前 21 天平均 vs 最近 21 天平均）</span>`);
+      }
+    }
+
+    const chip = t => `<div style="padding: 8px 10px; border-radius: 10px; background: rgba(var(--ink-rgb), 0.035); font-size: 12px; line-height: 1.5;">${t}</div>`;
+    box.innerHTML = `
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 8px;">${items.map(chip).join('')}</div>
+      ${body.length ? `<div style="margin-top: 12px; display:flex; flex-direction:column; gap:6px;">${body.map((t, i) => i === 0 ? t : chip(t)).join('')}</div>` : ''}
+      <div style="font-size: 10px; color: var(--text-muted); margin-top: 10px;">身體變化只列出超過平常量測波動的項目（體重、肌肉 ±0.7 kg，腰圍、胸圍 ±0.6 cm）。</div>`;
   }
 
   function updateCrossCorrelationsUI() {
